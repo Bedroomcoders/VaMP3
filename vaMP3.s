@@ -341,8 +341,21 @@ _EventHandler		movem.l	d0-d2/a0-a2/a6,-(sp)
 			and.l	vmp_InterruptMask(a5),d0
 			beq.w	.loop
 			
-			; Audio interrupt. Hardware already swapped buffers.
-			; We do nothing, the loop just wakes up and waits for timer!
+			; Audio interrupt. Hardware swapped buffers.
+			; Clear the audio signal flag from vmp_Signals
+			move.l	vmp_InterruptMask(a5),d1
+			not.l	d1
+			and.l	d1,vmp_Signals
+
+			; Setup Decoding Pointers sequentially in Main Task
+			move.l	#28,vmp_FramesToDecode(a5)
+			
+			; Decoding buffer is the NEW ActiveBuffer (which Paula is NOT playing)
+			move.l	vmp_PCM_ActiveBuffer(a5),d1
+			eor.l	#4,d1
+			lea	vmp_PCM_BufferArray,a0
+			move.l	(a0,d1.w),vmp_PCM_DecodePointer(a5)
+			
 			bra.w	.loop
 
 .exit			movem.l	(sp)+,d0-d2/a0-a2/a6
@@ -369,14 +382,6 @@ _InterruptHandler	; Registers are save/restored by the OS in an SetIntVector hoo
 			move.l	vmp_PCM_ActiveBuffer(a5),d1
 			eor.l	#4,d1
 			move.l	d1,vmp_PCM_ActiveBuffer(a5)
-
-			; Setup Decoding Pointers for the Main Task
-			move.l	#28,vmp_FramesToDecode(a5)
-			
-			; Decoding buffer is the OLD ActiveBuffer
-			eor.l	#4,d1
-			lea	vmp_PCM_BufferArray,a0
-			move.l	(a0,d1.w),vmp_PCM_DecodePointer(a5)
 
 			; Wake up the main task
 			movea.l	4.w,a6
@@ -884,7 +889,7 @@ _CloseMP3		move.l	#0,vmp_Playing(a5)
 			;------------------------------------------------------------
 			;
 
-_DecodeFrames		movem.l	d0-d2/a0-a3/a6,-(sp)
+_DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 
 			move.l	vmp_FramesToDecode(a5),d2
 			beq.w	.exit
@@ -940,12 +945,10 @@ _DecodeFrames		movem.l	d0-d2/a0-a3/a6,-(sp)
 			move.l	a2,(a0,d2.w)
 			
 			; Queue the newly decoded buffer IMMEDIATELY!
-			move.l	vmp_PCM_ActiveBuffer(a5),d3		; Save actual ActiveBuffer
-			move.l	d2,vmp_PCM_ActiveBuffer(a5)		; Temporarily set to DecodingBuffer
+			; d2 already contains the decoding buffer index (0 or 4)
 			bsr	_QueueBuffer
-			move.l	d3,vmp_PCM_ActiveBuffer(a5)		; Restore actual ActiveBuffer
 			
-.exit			movem.l	(sp)+,d0-d2/a0-a3/a6
+.exit			movem.l	(sp)+,d0-d3/a0-a3/a6
 			rts
 			
 
@@ -1017,7 +1020,7 @@ _ResumeMP3		movem.l	d0,-(sp)
 
 _QueueBuffer		movem.l	d0-d2/a0-a1,-(sp)
 
-			move.l	vmp_PCM_ActiveBuffer(a5),d2
+			; d2 contains target buffer offset (0 or 4)
 			lea	vmp_PCM_BufferArray,a0
 			movea.l	(a0,d2.w),a0						; a0 = Buffer pointer
 			lea	vmp_PCM_LengthArray,a1
@@ -1332,12 +1335,12 @@ img_Previous_Raw	incbin	"images/Previous_32x32.raw"
 
 			section	bss,bss
 
-vmp_PCM_Stream1		ds.w    VMP_MP3BUFFERSIZE/2
-vmp_PCM_Stream2		ds.w    VMP_MP3BUFFERSIZE/2
+vmp_PCM_Stream1		ds.b    VMP_MP3BUFFERSIZE/2
+vmp_PCM_Stream2		ds.b    VMP_MP3BUFFERSIZE/2
 
-			cnop	0,4							; 32-bit alignement
-vmp_PCM_PlayBuffer1	ds.w	VMP_MP3BUFFERSIZE
-vmp_PCM_PlayBuffer2	ds.w	VMP_MP3BUFFERSIZE
+			cnop	0,8							; 64-bit AMMX alignement
+vmp_PCM_PlayBuffer1	ds.b	VMP_MP3BUFFERSIZE
+vmp_PCM_PlayBuffer2	ds.b	VMP_MP3BUFFERSIZE
 
 
 
