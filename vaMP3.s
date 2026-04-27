@@ -399,13 +399,25 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 			movea.l	-4(a2),a0
 			lea	vmp_Method_WindowSetup,a1
 			movea.l	vmp_UtilityBase(a5),a6
-			jsr	-102(a6)						; CallHookPkt (Set notify on close button)
+			jsr	-102(a6)						; CallHookPkt (Set notify on Close button)
+
+			movea.l	vmp_MUI_ButtonPause(a5),a2
+			movea.l	-4(a2),a0
+			lea	vmp_Method_ButtonPause,a1
+			movea.l	vmp_UtilityBase(a5),a6
+			jsr	-102(a6)						; CallHookPkt (Set notify on Pause button)
+
+			movea.l	vmp_MUI_ButtonPlay(a5),a2
+			movea.l	-4(a2),a0
+			lea	vmp_Method_ButtonPlay,a1
+			movea.l	vmp_UtilityBase(a5),a6
+			jsr	-102(a6)						; CallHookPkt (Set notify on Play button)
 
 			movea.l	vmp_MUI_ButtonQuit(a5),a2
 			movea.l	-4(a2),a0
-			lea	vmp_Method_QuitButton,a1
+			lea	vmp_Method_ButtonQuit,a1
 			movea.l	vmp_UtilityBase(a5),a6
-			jsr	-102(a6)						; CallHookPkt (Set notify on quit button)
+			jsr	-102(a6)						; CallHookPkt (Set notify on Quit button)
 
 			movea.l	vmp_MUI_ButtonOpen(a5),a2
 			movea.l	-4(a2),a0
@@ -419,10 +431,10 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 
 
 			;------------------------------------------------------------
-			; _ButtonOpenPressed
+			; _ButtonPressedOpen
 			;------------------------------------------------------------
 
-_ButtonOpenPressed	movem.l	a0/a5-a6,-(sp)
+_ButtonPressedOpen	movem.l	a0/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our struct in a5.
 
 			bsr	_PauseMP3
@@ -437,7 +449,35 @@ _ButtonOpenPressed	movem.l	a0/a5-a6,-(sp)
 
 .done			movem.l	(sp)+,a0/a5-a6
 			rts
-			
+
+
+
+			;------------------------------------------------------------
+			; _ButtonPressedPlay
+			;------------------------------------------------------------
+
+_ButtonPressedPlay	movem.l	a5,-(sp)
+
+			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our struct in a5.
+			bsr	_ResumeMP3
+
+			movem.l	(sp)+,a5
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _ButtonPressedPause
+			;------------------------------------------------------------
+
+_ButtonPressedPause	movem.l	a5,-(sp)
+
+			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our struct in a5.
+			bsr	_PauseMP3
+
+			movem.l	(sp)+,a5
+			rts
+
 
 
 			;------------------------------------------------------------
@@ -603,8 +643,13 @@ _NewMP3			movem.l	d0-d1/a0-a1/a6,-(sp)
 			mulu.l	#1764,d0
 			move.l	d0,vmp_PCM_AudioSize(a5)
 
-			move.l	#1,vmp_Playing(a5)
-			
+			; Clear both buffers (256KB total) to prevent old audio from playing
+			lea	vmp_PCM_PlayBuffer1,a0
+			move.w	#$ffff,d0
+			moveq	#0,d1
+.clearBufs		move.l	d1,(a0)+
+			dbf	d0,.clearBufs
+
 			; 1. Decode Buffer A (0)
 			move.l	#4,vmp_PCM_ActiveBuffer(a5)	; Fake Active=4 so _DecodeFrames fills 0
 			move.l	#28,vmp_FramesToDecode(a5)
@@ -636,6 +681,8 @@ _NewMP3			movem.l	d0-d1/a0-a1/a6,-(sp)
 			
 			moveq	#VMP_STATUS_PLAYING,d0
 			bsr	_SetStatus
+			move.l	#1,vmp_Playing(a5)
+			
 
 .done			movem.l	(sp)+,d0-d1/a0-a1/a6
 			rts
@@ -919,7 +966,7 @@ _PlayMP3		movem.l	d0-d2/a0-a1,-(sp)
 			moveq	#VMP_AUDIOCHANNEL,d1
 			move.l	#$ffff,d2
 			bsr	_PlayAudio
-
+			
 			movem.l	(sp)+,d0-d2/a0-a1
 			rts
 
@@ -934,10 +981,10 @@ _PauseMP3		movem.l	d0,-(sp)
 			tst.l	vmp_Playing(a5)
 			beq.s	.exit							; ignore if audio is stopped
 
-			move.l	#1,vmp_Paused
+			move.l	#1,vmp_Paused(a5)
 			moveq	#0,d0
 			bset	#VMP_AUDIOCHANNEL,d0
-			move.w	d0,DMACON					; Stop audio on channel
+			move.w	d0,DMACON						; Stop audio on channel
 
 .exit			movem.l	(sp)+,d0
 			rts
@@ -953,10 +1000,10 @@ _ResumeMP3		movem.l	d0,-(sp)
 			tst.l	vmp_Playing(a5)
 			beq.s	.exit							; ignore if audio is stopped
 
-			move.l	#0,vmp_Paused
+			move.l	#0,vmp_Paused(a5)
 			move.l	#$8200,d0
 			bset	#VMP_AUDIOCHANNEL,d0
-			move.w	d0,DMACON					; Stop audio on channel
+			move.w	d0,DMACON						; Stop audio on channel
 
 .exit			movem.l	(sp)+,d0
 			rts
@@ -972,7 +1019,7 @@ _QueueBuffer		movem.l	d0-d2/a0-a1,-(sp)
 
 			move.l	vmp_PCM_ActiveBuffer(a5),d2
 			lea	vmp_PCM_BufferArray,a0
-			movea.l	(a0,d2.w),a0				; a0 = Buffer pointer
+			movea.l	(a0,d2.w),a0						; a0 = Buffer pointer
 			lea	vmp_PCM_LengthArray,a1
 			move.l	(a1,d2.w),d0
 			lsr.l	#3,d0
@@ -980,10 +1027,10 @@ _QueueBuffer		movem.l	d0-d2/a0-a1,-(sp)
 			movea.l	#AUD0L,a1
 			moveq	#VMP_AUDIOCHANNEL,d1
 			lsl.l	#4,d1
-			add.l	d1,a1					; a1 = channel base
+			add.l	d1,a1							; a1 = channel base
 			
-			move.l	a0,(a1)					; Queue AUDxL
-			move.l	d0,4(a1)				; Queue AUDxLEN
+			move.l	a0,(a1)							; Queue AUDxL
+			move.l	d0,4(a1)						; Queue AUDxLEN
 			
 			movem.l	(sp)+,d0-d2/a0-a1
 			rts
@@ -1175,7 +1222,7 @@ vmp_Method_WindowSetup	dc.l	MUIM_Notify,MUIA_Window_CloseRequest,TRUE
 			dc.l	MUIV_Notify_Application,2
 			dc.l	MUIM_Application_ReturnID,MUIV_Application_ReturnID_Quit
 
-vmp_Method_QuitButton	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
+vmp_Method_ButtonQuit	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
 			dc.l	MUIV_Notify_Application,2
 			dc.l	MUIM_Application_ReturnID,MUIV_Application_ReturnID_Quit
 
@@ -1183,8 +1230,24 @@ vmp_Method_ButtonOpen	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
 			dc.l	MUIV_Notify_Window,2
 			dc.l	MUIM_CallHook,vmp_Hook_ButtonOpen
 
+vmp_Method_ButtonPlay	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
+			dc.l	MUIV_Notify_Window,2
+			dc.l	MUIM_CallHook,vmp_Hook_ButtonPlay
+
+vmp_Method_ButtonPause	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
+			dc.l	MUIV_Notify_Window,2
+			dc.l	MUIM_CallHook,vmp_Hook_ButtonPause
+
 vmp_Hook_ButtonOpen	ds.b	MLN_SIZE
-			dc.l	_ButtonOpenPressed					; h_entry - Pointing to routine to be executed
+			dc.l	_ButtonPressedOpen					; h_entry - Pointing to routine to be executed
+			dc.l	0,0							; h_SubEntry, h_data
+
+vmp_Hook_ButtonPlay	ds.b	MLN_SIZE
+			dc.l	_ButtonPressedPlay					; h_entry - Pointing to routine to be executed
+			dc.l	0,0							; h_SubEntry, h_data
+
+vmp_Hook_ButtonPause	ds.b	MLN_SIZE
+			dc.l	_ButtonPressedPause					; h_entry - Pointing to routine to be executed
 			dc.l	0,0							; h_SubEntry, h_data
 
 vmp_FilenameBuffer	ds.b	256
