@@ -645,10 +645,10 @@ _NewMP3			movem.l	d0-d1/a0-a1/a6,-(sp)
 
 			; Clear both buffers (256KB total) to prevent old audio from playing
 			lea	vmp_PCM_PlayBuffer1,a0
-			move.w	#$ffff,d0
-			moveq	#0,d1
-.clearBufs		move.l	d1,(a0)+
-			dbf	d0,.clearBufs
+			load	#0,d1
+			move.l	#32768-1,d0
+.clearBufs		store	d1,(a0)+
+			dbf.l	d0,.clearBufs
 
 			; 1. Decode Buffer A (0)
 			move.l	#4,vmp_PCM_ActiveBuffer(a5)	; Fake Active=4 so _DecodeFrames fills 0
