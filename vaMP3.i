@@ -13,14 +13,14 @@ _LVOMPEGA_Decode	equ	-42
 _LVOMPEGA_Close		equ	-36
 
 mp3_ms_duration		equ	14	; Offset in struct
-
+mp3_dec_frequency	equ	28
 
 	; Application specific constants
 VMP_WINDOWID		equ	1
 VMP_WINDOWWIDTH		equ	300
 VMP_WINDOWHEIGHT	equ	500
 
-VMP_MP3BUFFERSIZE	equ	32768
+VMP_MP3BUFFERSIZE	equ	131072
 VMP_AUDIOCHANNEL	equ	3
 
 VMP_STATUS_IDLE		equ	0

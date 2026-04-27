@@ -52,8 +52,11 @@
 			APTR	vmp_MUI_Group
 			APTR	vmp_MUI_ButtonQuit
 			APTR	vmp_MUI_ButtonOpen
-			APTR	vmp_MUI_Button2
-			APTR	vmp_MUI_Button3
+			APTR	vmp_MUI_ButtonStop
+			APTR	vmp_MUI_ButtonPause
+			APTR	vmp_MUI_ButtonPlay
+			APTR	vmp_MUI_ButtonNext
+			APTR	vmp_MUI_ButtonPrevious
 			APTR	vmp_MUI_StatusText
 			APTR	vmp_MUI_HGroup1
 			APTR	vmp_MUI_HGroup2
@@ -61,6 +64,14 @@
 			APTR	vmp_MP3_Stream
 			LONG	vmp_PCM_ActiveBuffer
 			LONG	vmp_PCM_AudioSize
+			LONG	vmp_FramesToDecode
+			APTR	vmp_PCM_DecodePointer
+			APTR	vmp_TimerDeviceBase
+			LONG	vmp_TimerSignal
+			LONG	vmp_TimerMask
+			STRUCT	vmp_TimerPort,34
+			STRUCT	vmp_Padding,2
+			STRUCT	vmp_TimerReq,40
 		LABEL	vmp_SIZEOF
 
 
@@ -78,7 +89,7 @@ _Init			move.l	4.w,a6
 			LVO	AllocMem
 			tst.l	d0
 			beq	.allocError
-			movea.l	d0,a5					; Internal VMP Struct in a5 at all times
+			movea.l	d0,a5							; Internal VMP Struct in a5 at all times
 			move.l	d0,vmp_StructPointer
 			move.l	d0,vmp_GlobalPointer
 			
@@ -96,6 +107,44 @@ _Init			move.l	4.w,a6
 			suba.l	a1,a1
 			LVO	FindTask
 			move.l	d0,vmp_MainTask(a5)
+
+			; Allocate Timer Signal
+			movea.l	4.w,a6
+			moveq	#-1,d0
+			LVO	AllocSignal
+			cmp.b	#-1,d0
+			beq.w	.allocsignalError
+			and.l	#$000000ff,d0
+			move.l	d0,vmp_TimerSignal(a5)
+			moveq	#1,d1
+			lsl.l	d0,d1
+			move.l	d1,vmp_TimerMask(a5)
+
+			; Initialize Timer Port
+			lea	vmp_TimerPort(a5),a0
+			move.b	#NT_MSGPORT,8(a0)		; NT_MSGPORT
+			move.b	vmp_TimerSignal+3(a5),MP_SIGBIT(a0)
+			move.l	vmp_MainTask(a5),MP_SIGTASK(a0)
+			lea	MP_MSGLIST(a0),a1
+			NEWLIST	a1
+
+			; Initialize Timer Request
+			lea	vmp_TimerReq(a5),a0
+			move.b	#5,8(a0)		; NT_REPLYMSG
+			lea	vmp_TimerPort(a5),a1
+			move.l	a1,14(a0) 		; mn_ReplyPort
+			move.w	#40,18(a0)		; mn_Length
+
+			; Open Timer Device
+			lea	vmp_TimerReq(a5),a1
+			moveq	#0,d0							; UNIT_MICROHZ
+			moveq	#0,d1
+			lea	vmp_TimerDeviceName,a0
+			LVO	OpenDevice
+			tst.l	d0
+			bne.s	.skipTimer
+			move.l	#1,vmp_TimerDeviceBase(a5)				; Just set non-zero flag
+.skipTimer
 
 			; Open Libs
 			OPENLIB	Intuition,0
@@ -168,6 +217,15 @@ _Init			move.l	4.w,a6
 			
 			move.w	#$8400,$dff09a
 
+			tst.l	vmp_TimerDeviceBase(a5)
+			beq.s	.noStartTimer
+			lea	vmp_TimerReq(a5),a1
+			move.w	#9,28(a1)		; io_Command = TR_ADDREQUEST
+			move.l	#0,32(a1)		; tv_secs = 0
+			move.l	#20000,36(a1)		; tv_micro = 20000 (20ms)
+			movea.l	4.w,a6
+			LVO	SendIO
+.noStartTimer
 
 			; EventHandler is the mainloop
 			bsr	_EventHandler
@@ -200,6 +258,20 @@ _Init			move.l	4.w,a6
 			CLOSELIB	Intuition
 
 			movea.l	4.w,a6
+			
+			; Safe Timer Cleanup!
+			tst.l	vmp_TimerDeviceBase(a5)
+			beq.s	.noTimer
+			lea	vmp_TimerReq(a5),a1
+			LVO	AbortIO
+			lea	vmp_TimerReq(a5),a1
+			LVO	WaitIO
+			lea	vmp_TimerReq(a5),a1
+			LVO	CloseDevice
+.noTimer
+			move.l	vmp_TimerSignal(a5),d0
+			LVO	FreeSignal
+
 			move.l	vmp_InterruptSignal(a5),d0
 			LVO	FreeSignal
 
@@ -225,33 +297,53 @@ _EventHandler		movem.l	d0-d2/a0-a2/a6,-(sp)
 			jsr	(a6)							; DoMethod();
 
 			cmp.l	#MUIV_Application_ReturnID_Quit,d0
-			beq.s	.exit
+			beq.w	.exit
     
 			movea.l	4.w,a6
 			move.l	vmp_Signals,d0
-			or.l	vmp_InterruptMask(a5),d0				; Re-add audio mask because MUI overwrites vmp_Signals!
+			or.l	vmp_InterruptMask(a5),d0				; Re-add audio mask
+			or.l	vmp_TimerMask(a5),d0					; Re-add timer mask
 			beq.s	.loop
 			LVO	Wait
 			move.l	d0,vmp_Signals						; Feed received signals back to MUI
-			move.l	d0,d1
-			and.l	vmp_InterruptMask(a5),d1
-			beq.s	.loop
 			
-			; We got an audio interrupt. Let's swap buffers
+			; Handle Timer Signal
+			move.l	d0,d2
+			and.l	vmp_TimerMask(a5),d2
+			beq.s	.checkAudio
+			
+			; Timer fired - get the message.
+			movea.l	4.w,a6
+			lea	vmp_TimerPort(a5),a0
+			LVO	GetMsg
+			tst.l	d0
+			beq.s	.checkAudio						; No message!
+			
+			; Got timer message. 
+			; Re-issue it immediately so it ticks again!
+			lea	vmp_TimerReq(a5),a1
+			move.w	#9,28(a1)		; io_Command = TR_ADDREQUEST
+			move.l	#0,32(a1)		; tv_secs = 0
+			move.l	#20000,36(a1)		; tv_micro = 20000 (20ms)
+			movea.l	4.w,a6
+			LVO	SendIO
+			
+			; Decode up to 2 frames if needed!
 			tst.l	vmp_Playing(a5)
-			beq.s	.loop							; ignore if audio is stopped
+			beq.s	.checkAudio
 			tst.l	vmp_Paused(a5)
-			bne.s	.loop							; ignore if audio is paused
-
+			bne.s	.checkAudio
 			
-			move.l	vmp_PCM_ActiveBuffer(a5),d2
-			eor.l	#4,d2
-			move.l	d2,vmp_PCM_ActiveBuffer(a5)
+			bsr	_DecodeFrames
 			
-			bsr	_DecodeMP3
-			bsr	_QueueBuffer
+.checkAudio		; Check audio interrupt
+			move.l	vmp_Signals,d0
+			and.l	vmp_InterruptMask(a5),d0
+			beq.w	.loop
 			
-			bra.s	.loop
+			; Audio interrupt. Hardware already swapped buffers.
+			; We do nothing, the loop just wakes up and waits for timer!
+			bra.w	.loop
 
 .exit			movem.l	(sp)+,d0-d2/a0-a2/a6
 			rts
@@ -268,13 +360,31 @@ _InterruptHandler	; Registers are save/restored by the OS in an SetIntVector hoo
 			move.w	#$0400,INTREQ
 			tst.w	INTREQR							; Dummy read to flush bus
 
-			;Wake up the main task
+			tst.l	vmp_Playing(a5)
+			beq.s	.exit
+			tst.l	vmp_Paused(a5)
+			bne.s	.exit
+
+			; Rotate Buffer (The one Paula just automatically switched to)
+			move.l	vmp_PCM_ActiveBuffer(a5),d1
+			eor.l	#4,d1
+			move.l	d1,vmp_PCM_ActiveBuffer(a5)
+
+			; Setup Decoding Pointers for the Main Task
+			move.l	#28,vmp_FramesToDecode(a5)
+			
+			; Decoding buffer is the OLD ActiveBuffer
+			eor.l	#4,d1
+			lea	vmp_PCM_BufferArray,a0
+			move.l	(a0,d1.w),vmp_PCM_DecodePointer(a5)
+
+			; Wake up the main task
 			movea.l	4.w,a6
 			movea.l	vmp_MainTask(a5),a1
 			move.l	vmp_InterruptMask(a5),d0
 			LVO	Signal
 			
-			moveq	#0,d0							; Clear Z-flag
+.exit			moveq	#0,d0							; Clear Z-flag
 			rts
 
 
@@ -365,21 +475,30 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 			
 			CREATEMUIBUTTON	vmp_QuitButtonTitle
 			move.l	d0,vmp_MUI_ButtonQuit(a5)				; Create Quit Button
+			beq.w	.error
+
+			CREATEMUIBUTTON	vmp_OpenButtonTitle
+			move.l	d0,vmp_MUI_ButtonOpen(a5)				; Create Open Button
+			beq.w	.error
+
+			CREATEMUICUSTOMBUTTON	img_Stop_Raw
+			move.l	d0,vmp_MUI_ButtonStop(a5)				; Create Stop Button
 			beq	.error
 
 			CREATEMUICUSTOMBUTTON	img_Pause_Raw
-			move.l	d0,vmp_MUI_ButtonOpen(a5)				; Create Open Button
-			bne.s	.btn1ok
-			SHOWALERT	vmp_BtnAlert
-			bra	.error
-.btn1ok
-
-			CREATEMUICUSTOMBUTTON	img_Stop_Raw
-			move.l	d0,vmp_MUI_Button2(a5)					; Create Button2
+			move.l	d0,vmp_MUI_ButtonPause(a5)				; Create Pause Button
 			beq	.error
 
 			CREATEMUICUSTOMBUTTON	img_Play_Raw
-			move.l	d0,vmp_MUI_Button3(a5)					; Create Button3
+			move.l	d0,vmp_MUI_ButtonPlay(a5)				; Create Play Button
+			beq	.error
+
+			CREATEMUICUSTOMBUTTON	img_Next_Raw
+			move.l	d0,vmp_MUI_ButtonNext(a5)				; Create Next Button
+			beq	.error
+
+			CREATEMUICUSTOMBUTTON	img_Previous_Raw
+			move.l	d0,vmp_MUI_ButtonPrevious(a5)				; Create Previous Button
 			beq	.error
 
 			CREATEMUITEXT	vmp_StatusIdleTxt
@@ -389,6 +508,7 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 			lea	MUIC_Group,a0
 			INITSTACKTAG
 			STACKREGTAG	vmp_MUI_ButtonQuit(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_ButtonOpen(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_HGroup1(a5)					; Create MUI Horizontal Group 1
@@ -396,9 +516,11 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_Button2(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_Button3(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_ButtonOpen(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_ButtonNext(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_ButtonStop(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_ButtonPause(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_ButtonPlay(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_ButtonPrevious(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_HGroup2(a5)					; Create MUI Horizontal Group 2
@@ -469,7 +591,7 @@ _NewMP3			movem.l	d0-d1/a0-a1/a6,-(sp)
 
 .mp3Opened		move.l	d0,vmp_MP3_Stream(a5)
 
-			; Stop any playing audio and free previous buffer if allocated
+			; Stop any playing audio
 			moveq	#VMP_AUDIOCHANNEL,d0
 			bsr	_StopAudio
     
@@ -483,15 +605,30 @@ _NewMP3			movem.l	d0-d1/a0-a1/a6,-(sp)
 
 			move.l	#1,vmp_Playing(a5)
 			
-			move.l	#0,vmp_PCM_ActiveBuffer(a5)
-			bsr	_DecodeMP3			; Decode first buffer
-			bsr	_PlayMP3
-			move.l	#4,vmp_PCM_ActiveBuffer(a5)
-			bsr	_DecodeMP3			; Decode second buffer
-			bsr	_QueueBuffer
+			; 1. Decode Buffer A (0)
+			move.l	#4,vmp_PCM_ActiveBuffer(a5)	; Fake Active=4 so _DecodeFrames fills 0
+			move.l	#28,vmp_FramesToDecode(a5)
+			lea	vmp_PCM_BufferArray,a0
+			move.l	(a0),vmp_PCM_DecodePointer(a5)
+.initLoop1		bsr	_DecodeFrames
+			tst.l	vmp_FramesToDecode(a5)
+			bne.s	.initLoop1
 			
-			; CRITICAL FIX: Enabling DMA instantly fires an interrupt. We must clear this 
-			; spurious startup signal so our event loop doesn't instantly double-queue!
+			; Start Paula playing Buffer A
+			move.l	#0,vmp_PCM_ActiveBuffer(a5)
+			bsr	_PlayMP3
+			
+			; 2. Decode Buffer B (4)
+			; Active=0, so _DecodeFrames automatically fills and queues 4!
+			move.l	#28,vmp_FramesToDecode(a5)
+			lea	vmp_PCM_BufferArray,a0
+			move.l	4(a0),vmp_PCM_DecodePointer(a5)
+.initLoop2		bsr	_DecodeFrames
+			tst.l	vmp_FramesToDecode(a5)
+			bne.s	.initLoop2
+			
+			; Enabling DMA instantly fires an interrupt.
+			; Clear this signal so our event loop doesn't instantly double-queue!
 			movea.l	4.w,a6
 			moveq	#0,d0
 			move.l	vmp_InterruptMask(a5),d1
@@ -513,7 +650,7 @@ _InitCustomClass
 			movem.l	d0-d7/a0-a6,-(sp)
 			
 			suba.l	a0,a0								; a0 = NULL (Library base)
-			lea	vmp_AreaClass_Name,a1						; a1 = supername ("Area.mui")
+			lea	MUIC_Area,a1
 			suba.l	a2,a2								; a2 = NULL (no supermcc)
 			moveq	#4,d0								; d0 = InstSize (4 bytes for image pointer)
 			lea	_CustomButton_Dispatcher,a3					; a3 = dispatcher
@@ -548,7 +685,7 @@ _InitCustomClass
 _CustomButton_Dispatcher
 			movem.l	d2-d7/a2-a6,-(sp)					; BOOPSI MUST preserve these!
 			
-			move.l	vmp_StructPointer,a5					; Get vmp safely, ignoring A0!
+			move.l	vmp_StructPointer,a5					; Fetch out Struct back into a5
 			
 			move.l	(a1),d0							; a1 = Msg, so (a1) = MethodID
 			cmp.l	#$80426f3f,d0						; MUIM_Draw
@@ -586,7 +723,6 @@ _CustomButton_Dispatcher
 .foundTag		move.l	(a0),d0							; Get ti_Data (The image pointer)
 			move.l	(sp),a0							; Restore Class pointer
 			
-			; FIX: Properly fetch cl_InstOffset into D1 before using it!
 			moveq	#0,d1
 			move.w	32(a0),d1						; cl_InstOffset is a UWORD at offset 32!
 			
@@ -701,22 +837,27 @@ _CloseMP3		move.l	#0,vmp_Playing(a5)
 			;------------------------------------------------------------
 			;
 
-_DecodeMP3		movem.l	d0-d2/a0-a3/a6,-(sp)
+_DecodeFrames		movem.l	d0-d2/a0-a3/a6,-(sp)
 
-			move.l	vmp_PCM_ActiveBuffer(a5),d2
-			lea	vmp_PCM_BufferArray,a0
-			movea.l	(a0,d2.w),a2				; a2 = Current buffer
+			move.l	vmp_FramesToDecode(a5),d2
+			beq.w	.exit
+			cmp.l	#2,d2
+			ble.s	.setCount
+			move.l	#2,d2
+.setCount
+			sub.l	d2,vmp_FramesToDecode(a5)	; Decrement master counter
+			subq.l	#1,d2				; DBF counter
 
-			movea.l	a2,a3
-			moveq	#7-1,d2					; Decode 7 frames
-			
 .decodeLoop		movea.l	vmp_MPEGABase(a5),a6
 			move.l	vmp_MP3_Stream(a5),a0
 			move.l	#vmp_PCM_StreamArray,a1
 			LVO	MPEGA_Decode
 			tst.l	d0
 			bgt	.decoded
+			
+			; EOF or Error!
 			move.l	#0,vmp_Playing(a5)
+			move.l	#0,vmp_FramesToDecode(a5)
 			move.l	#VMP_STATUS_IDLE,d0
 			bsr	_SetStatus
 			moveq	#VMP_AUDIOCHANNEL,d0
@@ -725,17 +866,37 @@ _DecodeMP3		movem.l	d0-d2/a0-a3/a6,-(sp)
     
 .decoded		lea	vmp_PCM_Stream1,a0
 			lea	vmp_PCM_Stream2,a1
+			move.l	vmp_PCM_DecodePointer(a5),a2
 
 			subq.l	#1,d0
 .copyLoop		move.w	(a0)+,(a2)+				; Copying channel 1
 			move.w	(a1)+,(a2)+				; Copying channel 2 
     			dbf	d0,.copyLoop
-			dbf	d2,.decodeLoop
+			
+			move.l	a2,vmp_PCM_DecodePointer(a5)		; Save pointer
 
-			suba.l	a3,a2
-			lea	vmp_PCM_LengthArray,a0
+			dbf	d2,.decodeLoop
+			
+			; Check if buffer is completely full!
+			tst.l	vmp_FramesToDecode(a5)
+			bne.s	.exit
+			
+			; Buffer is full! Save length and QUEUE!
 			move.l	vmp_PCM_ActiveBuffer(a5),d2
+			eor.l	#4,d2					; Decoding buffer is ALWAYS the OTHER buffer!
+			
+			lea	vmp_PCM_BufferArray,a0
+			movea.l	(a0,d2.w),a3				; a3 = Base of decoding buffer
+			move.l	vmp_PCM_DecodePointer(a5),a2
+			suba.l	a3,a2					; a2 = Total bytes decoded
+			lea	vmp_PCM_LengthArray,a0
 			move.l	a2,(a0,d2.w)
+			
+			; Queue the newly decoded buffer IMMEDIATELY!
+			move.l	vmp_PCM_ActiveBuffer(a5),d3		; Save actual ActiveBuffer
+			move.l	d2,vmp_PCM_ActiveBuffer(a5)		; Temporarily set to DecodingBuffer
+			bsr	_QueueBuffer
+			move.l	d3,vmp_PCM_ActiveBuffer(a5)		; Restore actual ActiveBuffer
 			
 .exit			movem.l	(sp)+,d0-d2/a0-a3/a6
 			rts
@@ -837,7 +998,7 @@ _QueueBuffer		movem.l	d0-d2/a0-a1,-(sp)
 			;	d1 = Channel - Number between 0 and 15
 			;	d2 = Volume - Word with left and right volume in each byte. d2=$80ff would pan volume slightly to the right
 			
-_PlayAudio		movem.l	d0-d3/a0-a1,-(sp)
+_PlayAudio		movem.l	d0-d4/a0-a2,-(sp)
 
 			move.l	d1,d3						; Save channel in d3
 
@@ -850,7 +1011,14 @@ _PlayAudio		movem.l	d0-d3/a0-a1,-(sp)
 			move.l	a0,(a1)						; AUDxL 	- Set audio sample
 			move.l	d0,$4(a1)					; AUDxLEN 	- Length
 			move.w	d2,$8(a1)					; AUDxVOL 	- Volume
-			move.w	#80,$c(a1)					; AUDxPER 	- Set 44.1Khz sample rate\
+			
+			; Dynamic Frequency Calculation (3546895 / StreamFreq)
+			movea.l	vmp_MP3_Stream(a5),a2
+			move.l	mp3_dec_frequency(a2),d0
+			move.l	#3546895,d4
+			divu.l	d0,d4
+			move.w	d4,$c(a1)					; AUDxPER 	- Dynamic sample rate
+			
 			move.w	#5,$a(a1)					; AUDxCTRL	- Set 16 bit stereo - Play sample in loop
 			
 			cmp.l	#3,d3
@@ -867,7 +1035,7 @@ _PlayAudio		movem.l	d0-d3/a0-a1,-(sp)
 			move.w	d0,DMACON2
 			move.w	#$8200,DMACON					; DMACON is used to start sound even for higher channels
 			
-.done			movem.l	(sp)+,d0-d3/a0-a1
+.done			movem.l	(sp)+,d0-d4/a0-a2
 			rts
 
 
@@ -974,8 +1142,11 @@ vmp_IntuitionName	dc.b	'intuition.library',0
 vmp_GraphicsName	dc.b	'graphics.library',0
 vmp_ASLName		dc.b	"asl.library",0
 vmp_MPEGAName		dc.b	"mpega.library",0
+vmp_TimerDeviceName	dc.b	"timer.device",0
 vmp_WindowTitle		dc.b	"VaMP3 v0.1 - Bedroomcoders.com",0
 vmp_QuitButtonTitle	dc.b	"Quit",0
+vmp_OpenButtonTitle	dc.b	"Open",0
+vm
 vmp_ApplicationTitle	dc.b	"VaMP3",0
 vmp_AppBase		dc.b	"VAMP3",0
 vmp_MUIButtonSpace	dc.b	"MMM",0
@@ -986,6 +1157,8 @@ MUIC_Group		dc.b	"Group.mui",0
 MUIC_Text		dc.b	"Text.mui",0
 MUIC_Rectangle		dc.b	"Rectangle.mui",0
 MUIC_Image		dc.b	"Image.mui",0
+MUIC_Area		dc.b	"Area.mui",0
+vmp_CustomButton_Name	dc.b	"VaMP3CustomButton.mui",0
 			even
 
 vmp_StructPointer	dc.l	0
@@ -1039,7 +1212,6 @@ vmp_ASLAlert		dc.b	"Could not open asl.library",0
 vmp_MPEGAAlert		dc.b	"Could not open mpega.library",0
 vmp_GUIAlert		dc.b	"Error building GUI",0
 vmp_ClassAlert		dc.b	"Failed to create Custom Class!",0
-vmp_BtnAlert		dc.b	"Failed to create Button Object!",0
 vmp_DispAlert		dc.b	"Dispatcher called!",0
 vmp_SuperFailAlert	dc.b	"DoSuperMethodA returned 0!",0
 vmp_WDWAlert		dc.b	"Could not extract WindowBase",0
@@ -1087,14 +1259,13 @@ vmp_PCM_BufferArray	dc.l	vmp_PCM_PlayBuffer1
 
 vmp_PCM_LengthArray	dc.l	0,0
 
-vmp_CustomButton_Name	dc.b	"VaMP3CustomButton.mui",0
-vmp_AreaClass_Name	dc.b	"Area.mui",0
 			cnop	0,4							; SAGA/CyberGfx REQUIRES 32-bit aligned source data!
 
 img_Play_Raw		incbin	"images/Play_32x32.raw"
 img_Stop_Raw		incbin	"images/Stop_32x32.raw"
 img_Pause_Raw		incbin	"images/Pause_32x32.raw"
 img_Next_Raw		incbin	"images/Next_32x32.raw"
+img_Previous_Raw	incbin	"images/Previous_32x32.raw"
 
 			section	bss,bss
 
