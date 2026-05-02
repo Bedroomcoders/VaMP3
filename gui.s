@@ -19,83 +19,134 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 			
 
 			; *** Main Window ***
-			CREATEMUIBUTTON	vmp_QuitButtonTitle
-			move.l	d0,vmp_MUI_ButtonQuit(a5)				; Create Quit Button
+			CREATEMUIBUTTON	vmp_MainWdwPlaylistTitle
+			move.l	d0,vmp_MUI_MainWdwButtonPlaylist(a5)			; Create Playlist Button
 			beq.w	.error
 
-			CREATEMUIBUTTON	vmp_OpenButtonTitle
-			move.l	d0,vmp_MUI_ButtonOpen(a5)				; Create Open Button
+			CREATEMUIBUTTON	vmp_MainWdwOpenTitle
+			move.l	d0,vmp_MUI_MainWdwButtonOpen(a5)			; Create Open Button
 			beq.w	.error
 
 			CREATEMUICUSTOMBUTTON	img_Stop_Raw
-			move.l	d0,vmp_MUI_ButtonStop(a5)				; Create Stop Button
+			move.l	d0,vmp_MUI_MainWdwButtonStop(a5)			; Create Stop Button
 			beq	.error
 
 			CREATEMUICUSTOMBUTTON	img_Pause_Raw
-			move.l	d0,vmp_MUI_ButtonPause(a5)				; Create Pause Button
+			move.l	d0,vmp_MUI_MainWdwButtonPause(a5)			; Create Pause Button
 			beq	.error
 
 			CREATEMUICUSTOMBUTTON	img_Play_Raw
-			move.l	d0,vmp_MUI_ButtonPlay(a5)				; Create Play Button
+			move.l	d0,vmp_MUI_MainWdwButtonPlay(a5)			; Create Play Button
 			beq	.error
 
 			CREATEMUICUSTOMBUTTON	img_Next_Raw
-			move.l	d0,vmp_MUI_ButtonNext(a5)				; Create Next Button
+			move.l	d0,vmp_MUI_MainWdwButtonNext(a5)			; Create Next Button
 			beq	.error
 
 			CREATEMUICUSTOMBUTTON	img_Previous_Raw
-			move.l	d0,vmp_MUI_ButtonPrevious(a5)				; Create Previous Button
+			move.l	d0,vmp_MUI_MainWdwButtonPrevious(a5)			; Create Previous Button
 			beq	.error
 
 			CREATEMUITEXT	vmp_StatusIdleTxt
-			move.l	d0,vmp_MUI_StatusText(a5)				; Create Status field
+			move.l	d0,vmp_MUI_MainWdwStatusText(a5)			; Create Status field
 			beq	.error
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_ButtonQuit(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_ButtonOpen(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwButtonPlaylist(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwButtonOpen(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_HGroup1(a5)					; Create MUI Horizontal Group 1
+			move.l	d0,vmp_MUI_MainWdwHGroup1(a5)				; Create MUI Horizontal Group 1
 			beq	.error
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_ButtonNext(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_ButtonStop(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_ButtonPause(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_ButtonPlay(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_ButtonPrevious(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwButtonNext(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwButtonStop(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwButtonPause(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwButtonPlay(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwButtonPrevious(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_HGroup2(a5)					; Create MUI Horizontal Group 2
+			move.l	d0,vmp_MUI_MainWdwHGroup2(a5)				; Create MUI Horizontal Group 2
 			beq	.error
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_StatusText(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_HGroup1(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_HGroup2(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwStatusText(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwHGroup1(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwHGroup2(a5), MUIA_Group_Child
 			STACKVALTAG	FALSE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_VGroup(a5)					; Create MUI Vertical Group
+			move.l	d0,vmp_MUI_MainWdwVGroup(a5)				; Create MUI Vertical Group
 			beq	.error
 
 			lea	MUIC_Window,a0
 			INITSTACKTAG
 			STACKREGTAG	d0,MUIA_Window_RootObject
-			STACKVALTAG	1,MUIA_Window_ID
+			STACKVALTAG	VMP_MAINWINDOWID,MUIA_Window_ID
 			STACKADRTAG	vmp_MainWindowTitle,MUIA_Window_Title
-			STACKVALTAG	VMP_WINDOWWIDTH, MUIA_Window_Width
-			STACKVALTAG	VMP_WINDOWHEIGHT, MUIA_Window_Height
+			STACKVALTAG	VMP_MAINWINDOWWIDTH, MUIA_Window_Width
+			STACKVALTAG	VMP_MAINWINDOWHEIGHT, MUIA_Window_Height
 			STACKVALTAG	TRUE, MUIA_Window_CloseGadget
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1				; Create MUI Window
 			move.l	d0,vmp_MUI_MainWindow(a5)
 			beq	.error
 			
+
 			; *** Playlist Window ***
 			
+			CREATEMUIBUTTON	vmp_PlaylistAddFileTitle
+			move.l	d0,vmp_MUI_PlaylistButtonAddFile(a5)			; Create Add File Button
+			beq.w	.error
+
+			CREATEMUIBUTTON	vmp_PlaylistAddDirTitle
+			move.l	d0,vmp_MUI_PlaylistButtonAddDir(a5)			; Create Add Dir Button
+			beq.w	.error
+
+			lea	MUIC_List,a0
+			INITSTACKTAG
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_PlaylistList(a5)				; Create MUI List
+			beq	.error
+
+			lea	MUIC_List,a0
+			INITSTACKTAG
+			STACKREGTAG	d0, MUIA_Listview_List
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_PlaylistListview(a5)				; Create MUI Listview
+			beq	.error
+
+			lea	MUIC_Group,a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_MUI_PlaylistButtonAddDir(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_PlaylistButtonAddFile(a5), MUIA_Group_Child
+			STACKVALTAG	TRUE, MUIA_Group_Horiz
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_PlaylistHGroup1(a5)				; Create Playlist Horizontal Group 1
+			beq	.error
+
+			lea	MUIC_Group,a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_MUI_PlaylistHGroup1(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_PlaylistListview(a5), MUIA_Group_Child
+			STACKVALTAG	FALSE, MUIA_Group_Horiz
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_PlaylistVGroup(a5)				; Create MUI Vertical Group
+			beq	.error
+
+			lea	MUIC_Window,a0
+			INITSTACKTAG
+			STACKREGTAG	d0,MUIA_Window_RootObject
+			STACKVALTAG	VMP_PLAYLISTWINDOWID,MUIA_Window_ID
+			STACKADRTAG	vmp_PlaylistWindowTitle,MUIA_Window_Title
+			STACKVALTAG	VMP_PLAYLISTWINDOWWIDTH, MUIA_Window_Width
+			STACKVALTAG	VMP_PLAYLISTWINDOWHEIGHT, MUIA_Window_Height
+			STACKVALTAG	TRUE, MUIA_Window_CloseGadget
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1				; Create MUI Window
+			move.l	d0,vmp_MUI_PlaylistWindow(a5)
+			beq	.error
 			
 
 
@@ -104,17 +155,21 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 			INITSTACKTAG
 			move.l	vmp_MUI_MainWindow(a5),d0
 			STACKREGTAG	d0,MUIA_Application_Window
+			move.l	vmp_MUI_PlaylistWindow(a5),d0
+			STACKREGTAG	d0,MUIA_Application_Window
 			STACKADRTAG	vmp_ApplicationTitle, MUIA_Application_Title
 			STACKADRTAG	vmp_AppBase, MUIA_Application_Base
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1				; Create MUI Application
 			move.l	d0,vmp_MUI_Application(a5)
 			beq.s	.error
 
+			; *** Open Main window ***
 			movea.l	vmp_IntuitionBase(a5),a6
 			movea.l	vmp_MUI_MainWindow(a5),a0
 			INITSTACKTAG
 			STACKVALTAG	1,MUIA_Window_Open
-			CALLSTACKTAG	_LVOSetAttrsA,a1				; Open our window and draw gadgets
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
 
 			moveq	#0,d5
 
@@ -131,33 +186,47 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 
 _CreateHooks		movem.l	a0-a2/a6,-(sp)
 
+			; Main window hooks
 			movea.l	vmp_MUI_MainWindow(a5),a2
 			movea.l	-4(a2),a0
-			lea	vmp_Method_WindowSetup,a1
+			lea	vmp_Method_MainWdwWindowSetup,a1
 			movea.l	vmp_UtilityBase(a5),a6
 			jsr	-102(a6)						; CallHookPkt (Set notify on Close button)
 
-			movea.l	vmp_MUI_ButtonPause(a5),a2
+			movea.l	vmp_MUI_MainWdwButtonPause(a5),a2
 			movea.l	-4(a2),a0
-			lea	vmp_Method_ButtonPause,a1
+			lea	vmp_Method_MainWdwButtonPause,a1
 			movea.l	vmp_UtilityBase(a5),a6
 			jsr	-102(a6)						; CallHookPkt (Set notify on Pause button)
 
-			movea.l	vmp_MUI_ButtonPlay(a5),a2
+			movea.l	vmp_MUI_MainWdwButtonPlay(a5),a2
 			movea.l	-4(a2),a0
-			lea	vmp_Method_ButtonPlay,a1
+			lea	vmp_Method_MainWdwButtonPlay,a1
 			movea.l	vmp_UtilityBase(a5),a6
 			jsr	-102(a6)						; CallHookPkt (Set notify on Play button)
 
-			movea.l	vmp_MUI_ButtonQuit(a5),a2
+			movea.l	vmp_MUI_MainWdwButtonPlaylist(a5),a2
 			movea.l	-4(a2),a0
-			lea	vmp_Method_ButtonQuit,a1
+			lea	vmp_Method_MainWdwButtonPlaylist,a1
 			movea.l	vmp_UtilityBase(a5),a6
-			jsr	-102(a6)						; CallHookPkt (Set notify on Quit button)
+			jsr	-102(a6)						; CallHookPkt (Set notify on Playlist button)
 
-			movea.l	vmp_MUI_ButtonOpen(a5),a2
+			movea.l	vmp_MUI_MainWdwButtonOpen(a5),a2
 			movea.l	-4(a2),a0
-			lea	vmp_Method_ButtonOpen,a1
+			lea	vmp_Method_MainWdwButtonOpen,a1
+			movea.l	vmp_UtilityBase(a5),a6
+			jsr	-102(a6)						; CallHookPkt (Set hook to run _ButtonOpenPressed)
+
+			; Playlist window hooks
+			movea.l	vmp_MUI_PlaylistWindow(a5),a2
+			movea.l	-4(a2),a0
+			lea	vmp_Method_PlaylistWdwWindowSetup,a1
+			movea.l	vmp_UtilityBase(a5),a6
+			jsr	-102(a6)						; CallHookPkt (Set notify on Close button)
+
+			movea.l	vmp_MUI_PlaylistButtonAddFile(a5),a2
+			movea.l	-4(a2),a0
+			lea	vmp_Method_PlaylistButtonAddFile,a1
 			movea.l	vmp_UtilityBase(a5),a6
 			jsr	-102(a6)						; CallHookPkt (Set hook to run _ButtonOpenPressed)
 
@@ -167,10 +236,10 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 
 
 			;------------------------------------------------------------
-			; _ButtonPressedOpen
+			; _MainWdwButtonPressedOpen
 			;------------------------------------------------------------
 
-_ButtonPressedOpen	movem.l	a0/a5-a6,-(sp)
+_MainWdwButtonPressedOpen	movem.l	a0/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
 
 			bsr	_PauseMP3
@@ -189,10 +258,10 @@ _ButtonPressedOpen	movem.l	a0/a5-a6,-(sp)
 
 
 			;------------------------------------------------------------
-			; _ButtonPressedPlay
+			; _MainWdwButtonPressedPlay
 			;------------------------------------------------------------
 
-_ButtonPressedPlay	movem.l	a5,-(sp)
+_MainWdwButtonPressedPlay	movem.l	a5,-(sp)
 
 			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Strruct in a5.
 			bsr	_ResumeMP3
@@ -203,16 +272,60 @@ _ButtonPressedPlay	movem.l	a5,-(sp)
 
 
 			;------------------------------------------------------------
-			; _ButtonPressedPause
+			; _MainWdwButtonPressedPause
 			;------------------------------------------------------------
 
-_ButtonPressedPause	movem.l	a5,-(sp)
+_MainWdwButtonPressedPause	movem.l	a5,-(sp)
 
 			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
 			bsr	_PauseMP3
 
 			movem.l	(sp)+,a5
 			rts
+
+
+
+			;------------------------------------------------------------
+			; _MainWdwButtonPressedPlaylist
+			;------------------------------------------------------------
+
+_MainWdwButtonPressedPlaylist	movem.l	a0-a1/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our |¾uct in a5.
+
+
+			; *** Open Playlist window ***
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_PlaylistWindow(a5),a0
+			INITSTACKTAG
+			STACKVALTAG	1,MUIA_Window_Open
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			movem.l	(sp)+,a0-a1/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistButtonPressedAddFile
+			;------------------------------------------------------------
+
+_PlaylistButtonPressedAddFile
+			movem.l	a0/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our hÚuct in a5.
+
+			bsr	_PauseMP3
+			lea	vmp_FilenameBuffer,a0
+			bsr	_AskFile
+			bsr	_ResumeMP3
+			tst.l	d0
+			beq.s	.done
+						
+			lea	vmp_FilenameBuffer,a0
+			bsr	_NewMP3
+
+.done			movem.l	(sp)+,a0/a5-a6
+			rts
+
 
 
 
@@ -460,7 +573,7 @@ _AskFile		movem.l	d1/d5/a0-a3/a6,-(sp)
 
 _SetStatus		movem.l	d0-d1/a0-a1/a6,-(sp)
 			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_StatusText(a5),a0
+			movea.l	vmp_MUI_MainWdwStatusText(a5),a0
 			lea	vmp_StatusTable,a1
 			lsl.l	#2,d0
 			adda.l	d0,a1
@@ -474,62 +587,88 @@ _SetStatus		movem.l	d0-d1/a0-a1/a6,-(sp)
 
 			section data,Data
 
-vmp_MainWindowTitle	dc.b	"VaMP3 v0.11",0
-vmp_QuitButtonTitle	dc.b	"Quit",0
-vmp_OpenButtonTitle	dc.b	"Open",0
-vmp_ApplicationTitle	dc.b	"VaMP3",0
-vmp_AppBase		dc.b	"VAMP3",0
-vmp_MUIButtonSpace	dc.b	"MMM",0
+				; Main window
+vmp_MainWindowTitle		dc.b	"VaMP3 v0.11",0
+vmp_MainWdwPlaylistTitle	dc.b	"Playlist",0
+vmp_MainWdwOpenTitle		dc.b	"Open",0
 
-MUIC_Application	dc.b	"Application.mui",0
-MUIC_Window		dc.b	"Window.mui",0
-MUIC_Group		dc.b	"Group.mui",0
-MUIC_Text		dc.b	"Text.mui",0
-MUIC_Rectangle		dc.b	"Rectangle.mui",0
-MUIC_Image		dc.b	"Image.mui",0
-MUIC_Area		dc.b	"Area.mui",0
-vmp_CustomButton_Name	dc.b	"VaMP3CustomButton.mui",0
-			even
+				; Playlist window
+vmp_PlaylistWindowTitle		dc.b	"Playlist",0
+vmp_PlaylistAddFileTitle	dc.b	"Add file",0
+vmp_PlaylistAddDirTitle		dc.b	"Add dirctory",0
+				; Application
+vmp_ApplicationTitle		dc.b	"VaMP3",0
+vmp_AppBase			dc.b	"VAMP3",0
+vmp_MUIButtonSpace		dc.b	"MMM",0
 
-vmp_Method_Input	dc.l	MUIM_Application_NewInput,vmp_Signals
-			dc.l	0
+MUIC_Application		dc.b	"Application.mui",0
+MUIC_Window			dc.b	"Window.mui",0
+MUIC_Group			dc.b	"Group.mui",0
+MUIC_Text			dc.b	"Text.mui",0
+MUIC_List			dc.b	"List.mui",0
+MUIC_Listview			dc.b	"Listview.mui",0
+MUIC_Area			dc.b	"Area.mui",0
+vmp_CustomButton_Name		dc.b	"VaMP3CustomButton.mui",0
+				even
 
-vmp_Signals		ds.l	1							; Referenced from vmp_Method_Input structure
+vmp_Method_Input		dc.l	MUIM_Application_NewInput,vmp_Signals
+				dc.l	0
 
+vmp_Signals			ds.l	1							; Referenced from vmp_Method_Input structure
 
-vmp_Method_WindowSetup	dc.l	MUIM_Notify,MUIA_Window_CloseRequest,TRUE
-			dc.l	MUIV_Notify_Application,2
-			dc.l	MUIM_Application_ReturnID,MUIV_Application_ReturnID_Quit
+				; Main window methods
+vmp_Method_MainWdwWindowSetup	dc.l	MUIM_Notify,MUIA_Window_CloseRequest,TRUE
+				dc.l	MUIV_Notify_Application,2
+				dc.l	MUIM_Application_ReturnID,MUIV_Application_ReturnID_Quit
 
-vmp_Method_ButtonQuit	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
-			dc.l	MUIV_Notify_Application,2
-			dc.l	MUIM_Application_ReturnID,MUIV_Application_ReturnID_Quit
+vmp_Method_MainWdwButtonOpen	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
+				dc.l	MUIV_Notify_Window,2
+				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonOpen
 
-vmp_Method_ButtonOpen	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
-			dc.l	MUIV_Notify_Window,2
-			dc.l	MUIM_CallHook,vmp_Hook_ButtonOpen
+vmp_Method_MainWdwButtonPlay	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
+				dc.l	MUIV_Notify_Window,2
+				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonPlay
 
-vmp_Method_ButtonPlay	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
-			dc.l	MUIV_Notify_Window,2
-			dc.l	MUIM_CallHook,vmp_Hook_ButtonPlay
+vmp_Method_MainWdwButtonPause	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
+				dc.l	MUIV_Notify_Window,2
+				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonPause
 
-vmp_Method_ButtonPause	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
-			dc.l	MUIV_Notify_Window,2
-			dc.l	MUIM_CallHook,vmp_Hook_ButtonPause
+vmp_Method_MainWdwButtonPlaylist	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
+				dc.l	MUIV_Notify_Window,2
+				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonPlaylist
 
-vmp_Hook_ButtonOpen	ds.b	MLN_SIZE
-			dc.l	_ButtonPressedOpen					; h_entry - Pointing to routine to be executed
-			dc.l	0,0							; h_SubEntry, h_data
+				; Main windows hooks
+vmp_Hook_MainWdwButtonOpen	ds.b	MLN_SIZE
+				dc.l	_MainWdwButtonPressedOpen				; h_entry - Pointing to routine to be executed
+				dc.l	0,0							; h_SubEntry, h_data
 
-vmp_Hook_ButtonPlay	ds.b	MLN_SIZE
-			dc.l	_ButtonPressedPlay					; h_entry - Pointing to routine to be executed
-			dc.l	0,0							; h_SubEntry, h_data
+vmp_Hook_MainWdwButtonPlay	ds.b	MLN_SIZE
+				dc.l	_MainWdwButtonPressedPlay				; h_entry - Pointing to routine to be executed
+				dc.l	0,0							; h_SubEntry, h_data
 
-vmp_Hook_ButtonPause	ds.b	MLN_SIZE
-			dc.l	_ButtonPressedPause					; h_entry - Pointing to routine to be executed
-			dc.l	0,0							; h_SubEntry, h_data
+vmp_Hook_MainWdwButtonPause	ds.b	MLN_SIZE
+				dc.l	_MainWdwButtonPressedPause				; h_entry - Pointing to routine to be executed
+				dc.l	0,0							; h_SubEntry, h_data
 
-vmp_FilenameBuffer	ds.b	256
+vmp_Hook_MainWdwButtonPlaylist	ds.b	MLN_SIZE
+				dc.l	_MainWdwButtonPressedPlaylist				; h_entry - Pointing to routine to be executed
+				dc.l	0,0							; h_SubEntry, h_data
+
+				; Playlist window methods
+vmp_Method_PlaylistWdwWindowSetup	dc.l	MUIM_Notify,MUIA_Window_CloseRequest,TRUE
+				dc.l	MUIV_Notify_Application,2
+				dc.l	MUIM_Application_ReturnID,MUIV_Application_ReturnID_Quit
+
+vmp_Method_PlaylistButtonAddFile	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
+				dc.l	MUIV_Notify_Window,2
+				dc.l	MUIM_CallHook,vmp_Hook_PlaylistButtonAddFile
+
+				; Playlist window hooks
+vmp_Hook_PlaylistButtonAddFile	ds.b	MLN_SIZE
+				dc.l	_PlaylistButtonPressedAddFile
+				dc.l	0,0
+
+vmp_FilenameBuffer		ds.b	256
 
 
 

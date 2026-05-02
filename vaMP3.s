@@ -49,18 +49,25 @@
 			LONG	vmp_InterruptMask
 			APTR	vmp_MUI_Application
 			APTR	vmp_MUI_MainWindow
-			APTR	vmp_MUI_Group
-			APTR	vmp_MUI_ButtonQuit
-			APTR	vmp_MUI_ButtonOpen
-			APTR	vmp_MUI_ButtonStop
-			APTR	vmp_MUI_ButtonPause
-			APTR	vmp_MUI_ButtonPlay
-			APTR	vmp_MUI_ButtonNext
-			APTR	vmp_MUI_ButtonPrevious
-			APTR	vmp_MUI_StatusText
-			APTR	vmp_MUI_HGroup1
-			APTR	vmp_MUI_HGroup2
-			APTR	vmp_MUI_VGroup
+			APTR	vmp_MUI_MainWdwGroup
+			APTR	vmp_MUI_MainWdwButtonPlaylist
+			APTR	vmp_MUI_MainWdwButtonOpen
+			APTR	vmp_MUI_MainWdwButtonStop
+			APTR	vmp_MUI_MainWdwButtonPause
+			APTR	vmp_MUI_MainWdwButtonPlay
+			APTR	vmp_MUI_MainWdwButtonNext
+			APTR	vmp_MUI_MainWdwButtonPrevious
+			APTR	vmp_MUI_MainWdwStatusText
+			APTR	vmp_MUI_MainWdwHGroup1
+			APTR	vmp_MUI_MainWdwHGroup2
+			APTR	vmp_MUI_MainWdwVGroup
+			APTR	vmp_MUI_PlaylistWindow
+			APTR	vmp_MUI_PlaylistVGroup
+			APTR	vmp_MUI_PlaylistList
+			APTR	vmp_MUI_PlaylistListview
+			APTR	vmp_MUI_PlaylistButtonAddFile
+			APTR	vmp_MUI_PlaylistButtonAddDir
+			APTR	vmp_MUI_PlaylistHGroup1
 			APTR	vmp_MP3_Stream
 			LONG	vmp_PCM_ActiveBuffer
 			LONG	vmp_PCM_AudioSize
