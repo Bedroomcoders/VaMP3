@@ -20,6 +20,8 @@
 			include	"lvo/asl_lib.i"
 			include	"libraries/asl.i"
 			include	"cybergraphics/cybergraphics_lib.i"
+			include	"utility/utility_lib.i"
+			include	"dos/dos.i"
 
 			include	"vaMP3.i"
 			
@@ -61,6 +63,13 @@
 			APTR	vmp_MUI_MainWdwHGroup1
 			APTR	vmp_MUI_MainWdwHGroup2
 			APTR	vmp_MUI_MainWdwVGroup
+			APTR	vmp_MUI_DirlistWindow
+			APTR	vmp_MUI_DirlistVGroup
+			APTR	vmp_MUI_DirlistDirlist
+			APTR	vmp_MUI_DirlistButtonAddFile
+			APTR	vmp_MUI_DirlistButtonAddDir
+			APTR	vmp_MUI_DirlistHGroup1
+			LONG	vmp_MUI_TempFilePointer
 			APTR	vmp_MUI_PlaylistWindow
 			APTR	vmp_MUI_PlaylistVGroup
 			APTR	vmp_MUI_PlaylistList

@@ -144,6 +144,58 @@ CREATEMUICUSTOMBUTTON	MACRO
 			ENDM
 			
 			
+			;------------------------------------------------------------
+			; DoMethod Macros
+			; Usage: DOMETHODx Object, MethodID, Arg1, Arg2...
+			; Example: 
+			;    DOMETHOD2 vmp_MUI_PlaylistList(a5), #MUIM_List_InsertSingle, a0, #-1
+			; Note: Use # for constants/addresses, or just the register name!
+			;------------------------------------------------------------
+
+DOMETHOD0		MACRO						; \1=Object, \2=MethodID
+			movem.l	a0-a2/a6,-(sp)
+			move.l	\2,-(sp)				; Push MethodID
+			
+			move.l	sp,a1					; a1 = Msg array
+			movea.l	\1,a2					; a2 = Object
+			movea.l	-4(a2),a0				; a0 = Hook
+			movea.l	12(a0),a6				; a6 = Dispatcher
+			jsr	(a6)					; Call Dispatcher
+			
+			addq.l	#4,sp					; Cleanup stack (1 long)
+			movem.l	(sp)+,a0-a2/a6
+			ENDM
+
+DOMETHOD1		MACRO						; \1=Object, \2=MethodID, \3=Arg1
+			movem.l	a0-a2/a6,-(sp)
+			move.l	\3,-(sp)				; Push Arg1
+			move.l	\2,-(sp)				; Push MethodID
+			
+			move.l	sp,a1					; a1 = Msg array
+			movea.l	\1,a2					; a2 = Object
+			movea.l	-4(a2),a0				; a0 = Hook
+			movea.l	12(a0),a6				; a6 = Dispatcher
+			jsr	(a6)					; Call Dispatcher
+			
+			addq.l	#8,sp					; Cleanup stack (2 longs)
+			movem.l	(sp)+,a0-a2/a6
+			ENDM
+
+DOMETHOD2		MACRO						; \1=Object, \2=MethodID, \3=Arg1, \4=Arg2
+			movem.l	a0-a2/a6,-(sp)
+			move.l	\4,-(sp)				; Push Arg2
+			move.l	\3,-(sp)				; Push Arg1
+			move.l	\2,-(sp)				; Push MethodID
+			
+			move.l	sp,a1					; a1 = Msg array
+			movea.l	\1,a2					; a2 = Object
+			movea.l	-4(a2),a0				; a0 = Hook
+			movea.l	12(a0),a6				; a6 = Dispatcher
+			jsr	(a6)					; Call Dispatcher
+			
+			lea	12(sp),sp				; Cleanup stack (3 longs)
+			movem.l	(sp)+,a0-a2/a6
+			ENDM
 			
 	ENDC
 

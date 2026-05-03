@@ -95,6 +95,56 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 			beq	.error
 			
 
+			; *** Dirlist Window ***
+			
+			CREATEMUIBUTTON	vmp_DirlistAddFileTitle
+			move.l	d0,vmp_MUI_DirlistButtonAddFile(a5)			; Create Add File Button
+			beq.w	.error
+
+			CREATEMUIBUTTON	vmp_DirlistAddDirTitle
+			move.l	d0,vmp_MUI_DirlistButtonAddDir(a5)			; Create Add Dir Button
+			beq.w	.error
+
+			lea	MUIC_Dirlist,a0
+			INITSTACKTAG
+			STACKADRTAG	vmp_StartDirectory,MUIA_Dirlist_Directory
+		;	STACKADRTAG	vmp_FilePattern,MUIA_Dirlist_AcceptPattern
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_DirlistDirlist(a5)				; Create MUI Dirlist
+			beq	.error
+
+			lea	MUIC_Group,a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_MUI_DirlistButtonAddDir(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistButtonAddFile(a5), MUIA_Group_Child
+			STACKVALTAG	TRUE, MUIA_Group_Horiz
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_DirlistHGroup1(a5)				; Create Playlist Horizontal Group 1
+			beq	.error
+
+			lea	MUIC_Group,a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_MUI_DirlistHGroup1(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistDirlist(a5), MUIA_Group_Child
+			STACKVALTAG	FALSE, MUIA_Group_Horiz
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_DirlistVGroup(a5)				; Create MUI Vertical Group
+			beq	.error
+
+			lea	MUIC_Window,a0
+			INITSTACKTAG
+			STACKREGTAG	d0,MUIA_Window_RootObject
+			STACKVALTAG	VMP_DIRLISTWINDOWID,MUIA_Window_ID
+			STACKADRTAG	vmp_DirlistWindowTitle,MUIA_Window_Title
+			STACKVALTAG	VMP_DIRLISTWINDOWWIDTH, MUIA_Window_Width
+			STACKVALTAG	VMP_DIRLISTWINDOWHEIGHT, MUIA_Window_Height
+			STACKVALTAG	TRUE, MUIA_Window_CloseGadget
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1				; Create MUI Window
+			move.l	d0,vmp_MUI_DirlistWindow(a5)
+			beq	.error
+
+
+
 			; *** Playlist Window ***
 			
 			CREATEMUIBUTTON	vmp_PlaylistAddFileTitle
@@ -147,13 +197,15 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1				; Create MUI Window
 			move.l	d0,vmp_MUI_PlaylistWindow(a5)
 			beq	.error
-			
+
 
 
 			; *** Build application ***
 			lea	MUIC_Application,a0
 			INITSTACKTAG
 			move.l	vmp_MUI_MainWindow(a5),d0
+			STACKREGTAG	d0,MUIA_Application_Window
+			move.l	vmp_MUI_DirlistWindow(a5),d0
 			STACKREGTAG	d0,MUIA_Application_Window
 			move.l	vmp_MUI_PlaylistWindow(a5),d0
 			STACKREGTAG	d0,MUIA_Application_Window
@@ -191,44 +243,57 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 			movea.l	-4(a2),a0
 			lea	vmp_Method_MainWdwWindowSetup,a1
 			movea.l	vmp_UtilityBase(a5),a6
-			jsr	-102(a6)						; CallHookPkt (Set notify on Close button)
+			LVO	CallHookPkt
 
 			movea.l	vmp_MUI_MainWdwButtonPause(a5),a2
 			movea.l	-4(a2),a0
 			lea	vmp_Method_MainWdwButtonPause,a1
 			movea.l	vmp_UtilityBase(a5),a6
-			jsr	-102(a6)						; CallHookPkt (Set notify on Pause button)
+			LVO	CallHookPkt
 
 			movea.l	vmp_MUI_MainWdwButtonPlay(a5),a2
 			movea.l	-4(a2),a0
 			lea	vmp_Method_MainWdwButtonPlay,a1
 			movea.l	vmp_UtilityBase(a5),a6
-			jsr	-102(a6)						; CallHookPkt (Set notify on Play button)
+			LVO	CallHookPkt
 
 			movea.l	vmp_MUI_MainWdwButtonPlaylist(a5),a2
 			movea.l	-4(a2),a0
 			lea	vmp_Method_MainWdwButtonPlaylist,a1
 			movea.l	vmp_UtilityBase(a5),a6
-			jsr	-102(a6)						; CallHookPkt (Set notify on Playlist button)
+			LVO	CallHookPkt
 
 			movea.l	vmp_MUI_MainWdwButtonOpen(a5),a2
 			movea.l	-4(a2),a0
 			lea	vmp_Method_MainWdwButtonOpen,a1
 			movea.l	vmp_UtilityBase(a5),a6
-			jsr	-102(a6)						; CallHookPkt (Set hook to run _ButtonOpenPressed)
+			LVO	CallHookPkt
+
+			; Dirlist window hooks
+			movea.l	vmp_MUI_DirlistWindow(a5),a2
+			movea.l	-4(a2),a0
+			lea	vmp_Method_DirlistButtonClose,a1
+			movea.l	vmp_UtilityBase(a5),a6
+			LVO	CallHookPkt
+
+			movea.l	vmp_MUI_DirlistDirlist(a5),a2
+			movea.l	-4(a2),a0
+			lea	vmp_Method_DirlistDirlist,a1
+			movea.l	vmp_UtilityBase(a5),a6
+			LVO	CallHookPkt
 
 			; Playlist window hooks
 			movea.l	vmp_MUI_PlaylistWindow(a5),a2
 			movea.l	-4(a2),a0
-			lea	vmp_Method_PlaylistWdwWindowSetup,a1
+			lea	vmp_Method_PlaylistButtonClose,a1
 			movea.l	vmp_UtilityBase(a5),a6
-			jsr	-102(a6)						; CallHookPkt (Set notify on Close button)
+			LVO	CallHookPkt
 
 			movea.l	vmp_MUI_PlaylistButtonAddFile(a5),a2
 			movea.l	-4(a2),a0
 			lea	vmp_Method_PlaylistButtonAddFile,a1
 			movea.l	vmp_UtilityBase(a5),a6
-			jsr	-102(a6)						; CallHookPkt (Set hook to run _ButtonOpenPressed)
+			LVO	CallHookPkt
 
 			movem.l	(sp)+,a0-a2/a6
 			rts
@@ -242,15 +307,23 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 _MainWdwButtonPressedOpen	movem.l	a0/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
 
-			bsr	_PauseMP3
-			lea	vmp_FilenameBuffer,a0
-			bsr	_AskFile
-			bsr	_ResumeMP3
-			tst.l	d0
-			beq.s	.done
+			; *** Open Dirlist window ***
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_DirlistWindow(a5),a0
+			INITSTACKTAG
+			STACKVALTAG	1,MUIA_Window_Open
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+
+		;	bsr	_PauseMP3
+		;	lea	vmp_FilenameBuffer,a0
+		;	bsr	_AskFile
+		;	bsr	_ResumeMP3
+		;	tst.l	d0
+		;	beq.s	.done
 						
-			lea	vmp_FilenameBuffer,a0
-			bsr	_NewMP3
+		;	lea	vmp_FilenameBuffer,a0
+		;	bsr	_NewMP3
 
 .done			movem.l	(sp)+,a0/a5-a6
 			rts
@@ -306,12 +379,100 @@ _MainWdwButtonPressedPlaylist	movem.l	a0-a1/a5-a6,-(sp)
 
 
 			;------------------------------------------------------------
+			; _DirlistButtonPressedClose
+			;------------------------------------------------------------
+
+_DirlistButtonPressedClose
+			movem.l	a0/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
+
+			; *** Close Dirlist window ***
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_DirlistWindow(a5),a0
+			INITSTACKTAG
+			STACKVALTAG	0,MUIA_Window_Open
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+.done			movem.l	(sp)+,a0/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _DirlistPressedDirlist
+			;------------------------------------------------------------
+
+_DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
+
+			; Get item path
+			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_DirlistDirlist(a5),a0
+			move.l	#MUIA_Dirlist_Path,d0
+			lea	vmp_MUI_TempFilePointer(a5),a1
+			LVO	GetAttr
+			tst.l	d0
+			beq.s	.done
+
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_MainWdwStatusText(a5),a0
+			INITSTACKTAG
+			movea.l		vmp_MUI_TempFilePointer(a5),a1
+			STACKREGTAG	a1, MUIA_Text_Contents
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+
+
+			; Get FileInfoBlock
+			DOMETHOD1	vmp_MUI_DirlistDirlist(a5), #MUIM_List_GetEntry, #MUIV_List_GetEntry_Active
+			movea.l	d0,a0
+			move.l	fib_DirEntryType(a0),d0
+			blt.s	.isFile
+			bgt.s	.isDirectory
+			bra.s	.done
+
+.isFile
+			bsr	_PauseMP3
+			movea.l		vmp_MUI_TempFilePointer(a5),a0
+			bsr	_NewMP3
+			bsr	_ResumeMP3
+			bra.s	.done
+
+.isDirectory		movea.l		vmp_MUI_TempFilePointer(a5),a0
+			DOMETHOD2	vmp_MUI_DirlistDirlist(a5), #MUIM_Set, #MUIA_Dirlist_Directory, a0
+
+.done			movem.l	(sp)+,a0/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistButtonPressedClose
+			;------------------------------------------------------------
+
+_PlaylistButtonPressedClose
+			movem.l	a0/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
+
+			; *** Close Playlist window ***
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_PlaylistWindow(a5),a0
+			INITSTACKTAG
+			STACKVALTAG	0,MUIA_Window_Open
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+.done			movem.l	(sp)+,a0/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
 			; _PlaylistButtonPressedAddFile
 			;------------------------------------------------------------
 
 _PlaylistButtonPressedAddFile
 			movem.l	a0/a5-a6,-(sp)
-			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our hÚuct in a5.
+			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
 
 			bsr	_PauseMP3
 			lea	vmp_FilenameBuffer,a0
@@ -325,7 +486,6 @@ _PlaylistButtonPressedAddFile
 
 .done			movem.l	(sp)+,a0/a5-a6
 			rts
-
 
 
 
@@ -592,10 +752,19 @@ vmp_MainWindowTitle		dc.b	"VaMP3 v0.11",0
 vmp_MainWdwPlaylistTitle	dc.b	"Playlist",0
 vmp_MainWdwOpenTitle		dc.b	"Open",0
 
+				; Dirlist window
+vmp_DirlistWindowTitle		dc.b	"Directory listing",0
+vmp_DirlistAddFileTitle		dc.b	"Add file",0
+vmp_DirlistAddDirTitle		dc.b	"Add dirctory",0
+
+vmp_StartDirectory		dc.b	"personal:audio/mp3",0
+vmp_FilePattern			dc.b	"#?.mp3",0
+
 				; Playlist window
 vmp_PlaylistWindowTitle		dc.b	"Playlist",0
 vmp_PlaylistAddFileTitle	dc.b	"Add file",0
 vmp_PlaylistAddDirTitle		dc.b	"Add dirctory",0
+
 				; Application
 vmp_ApplicationTitle		dc.b	"VaMP3",0
 vmp_AppBase			dc.b	"VAMP3",0
@@ -607,6 +776,7 @@ MUIC_Group			dc.b	"Group.mui",0
 MUIC_Text			dc.b	"Text.mui",0
 MUIC_List			dc.b	"List.mui",0
 MUIC_Listview			dc.b	"Listview.mui",0
+MUIC_Dirlist			dc.b	"Dirlist.mui",0
 MUIC_Area			dc.b	"Area.mui",0
 vmp_CustomButton_Name		dc.b	"VaMP3CustomButton.mui",0
 				even
@@ -654,22 +824,45 @@ vmp_Hook_MainWdwButtonPlaylist	ds.b	MLN_SIZE
 				dc.l	_MainWdwButtonPressedPlaylist				; h_entry - Pointing to routine to be executed
 				dc.l	0,0							; h_SubEntry, h_data
 
-				; Playlist window methods
-vmp_Method_PlaylistWdwWindowSetup	dc.l	MUIM_Notify,MUIA_Window_CloseRequest,TRUE
+				; Dirlist window methods
+vmp_Method_DirlistButtonClose	dc.l	MUIM_Notify,MUIA_Window_CloseRequest,TRUE
 				dc.l	MUIV_Notify_Application,2
-				dc.l	MUIM_Application_ReturnID,MUIV_Application_ReturnID_Quit
+				dc.l	MUIM_CallHook,vmp_Hook_DirlistButtonClose
+
+vmp_Method_DirlistDirlist	dc.l	MUIM_Notify,MUIA_Listview_DoubleClick,TRUE
+				dc.l	MUIV_Notify_Window,2
+				dc.l	MUIM_CallHook,vmp_Hook_DirlistDirlist
+
+				; Dirlist window hooks
+vmp_Hook_DirlistButtonClose	ds.b	MLN_SIZE
+				dc.l	_DirlistButtonPressedClose
+				dc.l	0,0
+
+vmp_Hook_DirlistDirlist		ds.b	MLN_SIZE
+				dc.l	_DirlistPressedDirlist
+				dc.l	0,0
+
+
+				; Playlist window methods
+vmp_Method_PlaylistButtonClose	dc.l	MUIM_Notify,MUIA_Window_CloseRequest,TRUE
+				dc.l	MUIV_Notify_Application,2
+				dc.l	MUIM_CallHook,vmp_Hook_PlaylistButtonClose
 
 vmp_Method_PlaylistButtonAddFile	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
 				dc.l	MUIV_Notify_Window,2
 				dc.l	MUIM_CallHook,vmp_Hook_PlaylistButtonAddFile
 
 				; Playlist window hooks
+vmp_Hook_PlaylistButtonClose	ds.b	MLN_SIZE
+				dc.l	_PlaylistButtonPressedClose
+				dc.l	0,0
+				
 vmp_Hook_PlaylistButtonAddFile	ds.b	MLN_SIZE
 				dc.l	_PlaylistButtonPressedAddFile
 				dc.l	0,0
 
-vmp_FilenameBuffer		ds.b	256
 
+vmp_FilenameBuffer		ds.b	256
 
 
 			; Status messages
