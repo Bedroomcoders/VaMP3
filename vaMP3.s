@@ -22,6 +22,7 @@
 			include	"cybergraphics/cybergraphics_lib.i"
 			include	"utility/utility_lib.i"
 			include	"dos/dos.i"
+			include	"dos/dos_lib.i"
 
 			include	"vaMP3.i"
 			
@@ -38,6 +39,7 @@
 			APTR	vmp_ASLBase
 			APTR	vmp_UtilityBase
 			APTR	vmp_MPEGABase
+			APTR	vmp_DosBase
 			APTR	vmp_CustomButtonClass
 			LONG	vmp_Quit
 			LONG	vmp_Playing
@@ -66,11 +68,13 @@
 			APTR	vmp_MUI_DirlistWindow
 			APTR	vmp_MUI_DirlistVGroup
 			APTR	vmp_MUI_DirlistDirlist
+			APTR	vmp_MUI_DirlistButtonParent
 			APTR	vmp_MUI_DirlistButtonAddFile
 			APTR	vmp_MUI_DirlistButtonAddDir
 			APTR	vmp_MUI_DirlistDirString
 			APTR	vmp_MUI_DirlistPopasl
 			APTR	vmp_MUI_DirlistHGroup1
+			APTR	vmp_MUI_DirlistHGroup2
 			LONG	vmp_MUI_TempFilePointer
 			APTR	vmp_MUI_PlaylistWindow
 			APTR	vmp_MUI_PlaylistVGroup
@@ -188,8 +192,13 @@ _Init			move.l	4.w,a6
 			SHOWALERT	vmp_MPEGAAlert
 			bra.w	.cleanup
 
+.mpegaOpened		OPENLIB	Dos,37
+			bne.s	.dosOpened
+			SHOWALERT	vmp_DosAlert
+			bra.w	.cleanup
+
 			; Create MUI - Application, Window, buttons, etc
-.mpegaOpened		bsr	_InitCustomClass
+.dosOpened		bsr	_InitCustomClass
 			bsr	_BuildGui
 			beq.s	.guiBuilt
 			SHOWALERT	vmp_GUIAlert
@@ -268,7 +277,8 @@ _Init			move.l	4.w,a6
 			movea.l	vmp_MUI_Application(a5),a0
 			LVO	MUI_DisposeObject		
 
-.cleanup		CLOSELIB	MPEGA
+.cleanup		CLOSELIB	Dos
+			CLOSELIB	MPEGA
 			CLOSELIB	ASL
 			CLOSELIB	MUI
 			CLOSELIB	CyberGfx
@@ -420,6 +430,7 @@ vmp_IntuitionName	dc.b	'intuition.library',0
 vmp_GraphicsName	dc.b	'graphics.library',0
 vmp_ASLName		dc.b	"asl.library",0
 vmp_MPEGAName		dc.b	"mpega.library",0
+vmp_DosName		dc.b	"dos.library",0
 vmp_TimerDeviceName	dc.b	"timer.device",0
 			even
 
@@ -434,6 +445,7 @@ vmp_UtilAlert		dc.b	"Could not open utility.library",0
 vmp_CGXAlert		dc.b	"Could not open cybergraphics.library",0
 vmp_ASLAlert		dc.b	"Could not open asl.library",0
 vmp_MPEGAAlert		dc.b	"Could not open mpega.library",0
+vmp_DosAlert		dc.b	"Could not open dos.library",0
 vmp_GUIAlert		dc.b	"Error building GUI",0
 vmp_ClassAlert		dc.b	"Failed to create Custom Class!",0
 vmp_DispAlert		dc.b	"Dispatcher called!",0

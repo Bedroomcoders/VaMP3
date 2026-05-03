@@ -105,10 +105,21 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_DirlistButtonAddDir(a5)			; Create Add Dir Button
 			beq.w	.error
 
+			CREATEMUIIMAGEBUTTON MUII_ArrowUp
+			move.l	d0,vmp_MUI_DirlistButtonParent(a5)
+			beq.w	.error
+			
+			movea.l	vmp_DosBase(a5),a6
+			move.l	#vmp_FilePattern,d1
+			move.l	#vmp_FilePatternToken,d2
+			moveq	#32,d3
+			LVO	ParsePatternNoCase
+			
+			movea.l	vmp_MUIBase(a5),a6
 			lea	MUIC_Dirlist,a0
 			INITSTACKTAG
 			STACKADRTAG	vmp_StartDirectory,MUIA_Dirlist_Directory
-		;	STACKADRTAG	vmp_FilePattern,MUIA_Dirlist_AcceptPattern
+			STACKADRTAG	vmp_FilePatternToken,MUIA_Dirlist_AcceptPattern
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_DirlistDirlist(a5)				; Create MUI Dirlist
 			beq	.error
@@ -131,8 +142,8 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_DirlistButtonAddDir(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_DirlistButtonAddFile(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistDirString(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistButtonParent(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_DirlistHGroup1(a5)				; Create Playlist Horizontal Group 1
@@ -140,9 +151,18 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_DirlistHGroup1(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistButtonAddDir(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistButtonAddFile(a5), MUIA_Group_Child
+			STACKVALTAG	TRUE, MUIA_Group_Horiz
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_DirlistHGroup2(a5)				; Create Playlist Horizontal Group 2
+			beq	.error
+
+			lea	MUIC_Group,a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_MUI_DirlistHGroup2(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_DirlistDirlist(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_DirlistDirString(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistHGroup1(a5), MUIA_Group_Child
 		;	STACKREGTAG	vmp_MUI_DirlistPopasl(a5), MUIA_Group_Child
 			STACKVALTAG	FALSE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
@@ -460,6 +480,11 @@ _DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
 
 .isDirectory		movea.l		vmp_MUI_TempFilePointer(a5),a0
 			DOMETHOD2	vmp_MUI_DirlistDirlist(a5), #MUIM_Set, #MUIA_Dirlist_Directory, a0
+			movea.l	vmp_MUI_DirlistDirString(a5),a0
+			INITSTACKTAG
+			movea.l		vmp_MUI_TempFilePointer(a5),a1
+			STACKREGTAG	a1, MUIA_String_Contents
+			CALLSTACKTAG	_LVOSetAttrsA,a1
 
 .done			movem.l	(sp)+,a0/a5-a6
 			rts
@@ -777,8 +802,9 @@ vmp_DirlistWindowTitle		dc.b	"Directory listing",0
 vmp_DirlistAddFileTitle		dc.b	"Add file",0
 vmp_DirlistAddDirTitle		dc.b	"Add dirctory",0
 
-vmp_StartDirectory		dc.b	"personal:audio/mp3",0
+vmp_StartDirectory		dc.b	"DH2:",0
 vmp_FilePattern			dc.b	"#?.mp3",0
+vmp_FilePatternToken		ds.b	32
 
 				; Playlist window
 vmp_PlaylistWindowTitle		dc.b	"Playlist",0
@@ -794,6 +820,7 @@ MUIC_Application		dc.b	"Application.mui",0
 MUIC_Window			dc.b	"Window.mui",0
 MUIC_Group			dc.b	"Group.mui",0
 MUIC_Text			dc.b	"Text.mui",0
+MUIC_Image			dc.b	"Image.mui",0
 MUIC_List			dc.b	"List.mui",0
 MUIC_Listview			dc.b	"Listview.mui",0
 MUIC_Dirlist			dc.b	"Dirlist.mui",0
