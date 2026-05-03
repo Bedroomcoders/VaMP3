@@ -68,6 +68,8 @@
 			APTR	vmp_MUI_DirlistDirlist
 			APTR	vmp_MUI_DirlistButtonAddFile
 			APTR	vmp_MUI_DirlistButtonAddDir
+			APTR	vmp_MUI_DirlistDirString
+			APTR	vmp_MUI_DirlistPopasl
 			APTR	vmp_MUI_DirlistHGroup1
 			LONG	vmp_MUI_TempFilePointer
 			APTR	vmp_MUI_PlaylistWindow

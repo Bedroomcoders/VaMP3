@@ -113,6 +113,22 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_DirlistDirlist(a5)				; Create MUI Dirlist
 			beq	.error
 
+			lea	MUIC_String,a0
+			INITSTACKTAG
+			STACKVALTAG	13, MUIA_Frame
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_DirlistDirString(a5)				; Create MUI String
+			beq	.error
+
+		;	lea	MUIC_Popasl,a0
+		;	INITSTACKTAG
+		;	STACKVALTAG	ASL_FileRequest, MUIA_Popasl_Type
+		;	STACKVALTAG	TRUE, ASLFR_DrawersOnly
+		;	STACKREGTAG	vmp_MUI_DirlistDirString(a5), MUIA_Popstring_String
+		;	CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+		;	move.l	d0,vmp_MUI_DirlistPopasl(a5)				; Create MUI Popup ASL requester
+		;	beq	.error
+
 			lea	MUIC_Group,a0
 			INITSTACKTAG
 			STACKREGTAG	vmp_MUI_DirlistButtonAddDir(a5), MUIA_Group_Child
@@ -126,6 +142,8 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 			INITSTACKTAG
 			STACKREGTAG	vmp_MUI_DirlistHGroup1(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_DirlistDirlist(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistDirString(a5), MUIA_Group_Child
+		;	STACKREGTAG	vmp_MUI_DirlistPopasl(a5), MUIA_Group_Child
 			STACKVALTAG	FALSE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_DirlistVGroup(a5)				; Create MUI Vertical Group
@@ -143,6 +161,8 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_DirlistWindow(a5)
 			beq	.error
 
+			; Connect DirString to DirList
+			DOMETHOD7	vmp_MUI_DirlistDirString(a5), #MUIM_Notify, #MUIA_String_Acknowledge, #MUIV_EveryTime, vmp_MUI_DirlistDirlist(a5), #3, #MUIM_Set, #MUIA_Dirlist_Directory, #MUIV_TriggerValue
 
 
 			; *** Playlist Window ***
@@ -363,7 +383,7 @@ _MainWdwButtonPressedPause	movem.l	a5,-(sp)
 			;------------------------------------------------------------
 
 _MainWdwButtonPressedPlaylist	movem.l	a0-a1/a5-a6,-(sp)
-			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our |¾uct in a5.
+			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our |ï¿½uct in a5.
 
 
 			; *** Open Playlist window ***
@@ -778,6 +798,9 @@ MUIC_List			dc.b	"List.mui",0
 MUIC_Listview			dc.b	"Listview.mui",0
 MUIC_Dirlist			dc.b	"Dirlist.mui",0
 MUIC_Area			dc.b	"Area.mui",0
+MUIC_Popasl			dc.b	"Popasl.mui",0
+MUIC_String			dc.b	"String.mui",0
+
 vmp_CustomButton_Name		dc.b	"VaMP3CustomButton.mui",0
 				even
 

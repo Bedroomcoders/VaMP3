@@ -167,9 +167,9 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 
 			move.l	vmp_FramesToDecode(a5),d2
 			beq.w	.exit
-			cmp.l	#2,d2
+			cmp.l	#VMP_FRAMESPERTICK,d2
 			ble.s	.setCount
-			move.l	#2,d2
+			move.l	#VMP_FRAMESPERTICK,d2
 .setCount
 			sub.l	d2,vmp_FramesToDecode(a5)				; Decrement master counter
 			subq.l	#1,d2							; DBF counter

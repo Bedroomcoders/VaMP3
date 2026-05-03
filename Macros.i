@@ -196,6 +196,27 @@ DOMETHOD2		MACRO						; \1=Object, \2=MethodID, \3=Arg1, \4=Arg2
 			lea	12(sp),sp				; Cleanup stack (3 longs)
 			movem.l	(sp)+,a0-a2/a6
 			ENDM
+
+DOMETHOD7		MACRO						; \1=Object, \2=MethodID, \3=Arg1 to \9=Arg7
+			movem.l	a0-a2/a6,-(sp)
+			move.l	\9,-(sp)				; Push Arg7
+			move.l	\8,-(sp)				; Push Arg6
+			move.l	\7,-(sp)				; Push Arg5
+			move.l	\6,-(sp)				; Push Arg4
+			move.l	\5,-(sp)				; Push Arg3
+			move.l	\4,-(sp)				; Push Arg2
+			move.l	\3,-(sp)				; Push Arg1
+			move.l	\2,-(sp)				; Push MethodID
 			
+			move.l	sp,a1					; a1 = Msg array
+			movea.l	\1,a2					; a2 = Object
+			movea.l	-4(a2),a0				; a0 = Hook
+			movea.l	12(a0),a6				; a6 = Dispatcher
+			jsr	(a6)					; Call Dispatcher
+			
+			lea	32(sp),sp				; Cleanup stack (8 longs)
+			movem.l	(sp)+,a0-a2/a6
+			ENDM
+
 	ENDC
 
