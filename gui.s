@@ -12,7 +12,7 @@
 			; 	OK	d0 = 1
 			;	Error 	d0 = 1
 
-_BuildGui		movem.l	d5/a0-a2/a6,-(sp)
+_BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 
 			movea.l	vmp_MUIBase(a5),a6
 			moveq	#1,d5
@@ -266,7 +266,7 @@ _BuildGui		movem.l	d5/a0-a2/a6,-(sp)
 			moveq	#0,d5
 
 .error			move.l	d5,d0
-			movem.l	(sp)+,d5/a0-a2/a6
+			movem.l	(sp)+,d2-d3/d5/a0-a2/a6
 			tst.l	d0
 			rts
 
@@ -294,6 +294,18 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 			movea.l	vmp_MUI_MainWdwButtonPlay(a5),a2
 			movea.l	-4(a2),a0
 			lea	vmp_Method_MainWdwButtonPlay,a1
+			movea.l	vmp_UtilityBase(a5),a6
+			LVO	CallHookPkt
+
+			movea.l	vmp_MUI_MainWdwButtonNext(a5),a2
+			movea.l	-4(a2),a0
+			lea	vmp_Method_MainWdwButtonNext,a1
+			movea.l	vmp_UtilityBase(a5),a6
+			LVO	CallHookPkt
+
+			movea.l	vmp_MUI_MainWdwButtonPrevious(a5),a2
+			movea.l	-4(a2),a0
+			lea	vmp_Method_MainWdwButtonPrevious,a1
 			movea.l	vmp_UtilityBase(a5),a6
 			LVO	CallHookPkt
 
@@ -399,11 +411,144 @@ _MainWdwButtonPressedPause	movem.l	a5,-(sp)
 
 
 			;------------------------------------------------------------
+			; _MainWdwButtonPressedNext
+			;------------------------------------------------------------
+
+_MainWdwButtonPressedNext
+			movem.l	d2-d3/a3-a6,-(sp)
+			movea.l	vmp_StructPointer,a5					; Reload our Struct in a5
+
+			cmp.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
+			beq.s	.dirlist
+			cmp.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
+			beq.s	.playlist
+			bra.w	.done
+
+.dirlist		movea.l	vmp_MUI_DirlistDirlist(a5),a4
+			lea	_DirlistPressedDirlist,a3
+			bra.s	.findNext
+
+.playlist		movea.l	vmp_MUI_PlaylistList(a5),a4
+			; lea	_PlaylistPressedPlaylist,a3				; TODO: Create this routine!
+			bra.w	.done
+
+.findNext		; Get current active index into d2
+			subq.l	#4,sp							; Allocate 4 bytes on stack for GetAttr
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a4,a0
+			move.l	#MUIA_List_Active,d0
+			movea.l	sp,a1							; Storage pointer = stack
+			LVO	GetAttr
+			move.l	(sp)+,d2						; d2 = old index
+
+			; Select next item
+			move.l	d2,d3
+			addq.l	#1,d3
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a4,a0
+			INITSTACKTAG
+			STACKREGTAG	d3, MUIA_List_Active
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			; Get the new active index into d3
+			subq.l	#4,sp
+			movea.l	a4,a0
+			move.l	#MUIA_List_Active,d0
+			movea.l	sp,a1
+			LVO	GetAttr
+			move.l	(sp)+,d3						; d3 = new index
+
+			cmp.l	d2,d3
+			beq.w	.done							; We hit the bottom, just stop.
+
+			; If playing from Dirlist, we must skip directories!
+			cmp.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
+			bne.s	.play
+
+			DOMETHOD1 a4, #MUIM_List_GetEntry, #MUIV_List_GetEntry_Active
+			movea.l	d0,a0
+			move.l	fib_DirEntryType(a0),d0
+			bgt.s	.findNext						; It is a directory! Keep moving down!
+
+.play			jsr	(a3)							; Call the right playback routine (in a3)
+.done			movem.l	(sp)+,d2-d3/a3-a6
+			rts
+
+
+			;------------------------------------------------------------
+			; _MainWdwButtonPressedPrevious
+			;------------------------------------------------------------
+
+_MainWdwButtonPressedPrevious
+			movem.l	d2-d3/a3-a6,-(sp)
+			movea.l	vmp_StructPointer,a5					; Reload our Struct in a5
+
+			cmp.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
+			beq.s	.dirlist
+			cmp.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
+			beq.s	.playlist
+			bra.w	.done
+
+.dirlist		movea.l	vmp_MUI_DirlistDirlist(a5),a4
+			lea	_DirlistPressedDirlist,a3
+			bra.s	.findPrev
+
+.playlist		movea.l	vmp_MUI_PlaylistList(a5),a4
+			; lea	_PlaylistPressedPlaylist,a3				; TODO: Create this routine!
+			bra.w	.done
+
+.findPrev		; Get current active index into d2
+			subq.l	#4,sp							; Allocate 4 bytes on stack for GetAttr
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a4,a0
+			move.l	#MUIA_List_Active,d0
+			movea.l	sp,a1							; Storage pointer = stack
+			LVO	GetAttr
+			move.l	(sp)+,d2						; d2 = old index
+
+			; Select previous item
+			move.l	d2,d3
+			subq.l	#1,d3
+			bmi.s	.done							; Stop if we hit the top
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a4,a0
+			INITSTACKTAG
+			STACKREGTAG	d3, MUIA_List_Active
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			; Get the new active index into d3
+			subq.l	#4,sp
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a4,a0
+			move.l	#MUIA_List_Active,d0
+			movea.l	sp,a1
+			LVO	GetAttr
+			move.l	(sp)+,d3						; d3 = new index
+
+			cmp.l	d2,d3
+			beq.w	.done							; We hit the top, just stop.
+
+			; If playing from Dirlist, we must skip directories!
+			cmp.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
+			bne.s	.play
+
+			DOMETHOD1 a4, #MUIM_List_GetEntry, #MUIV_List_GetEntry_Active
+			movea.l	d0,a0
+			move.l	fib_DirEntryType(a0),d0
+			bgt.s	.findPrev						; It is a directory! Keep moving up!
+
+.play			jsr	(a3)							; Call the right playback routine (in a3)
+.done			movem.l	(sp)+,d2-d3/a3-a6
+			rts
+
+
+
+			;------------------------------------------------------------
 			; _MainWdwButtonPressedPlaylist
 			;------------------------------------------------------------
 
 _MainWdwButtonPressedPlaylist	movem.l	a0-a1/a5-a6,-(sp)
-			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our |�uct in a5.
+			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
 
 
 			; *** Open Playlist window ***
@@ -472,14 +617,20 @@ _DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
 			bra.s	.done
 
 .isFile
+			move.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
 			bsr	_PauseMP3
 			movea.l		vmp_MUI_TempFilePointer(a5),a0
 			bsr	_NewMP3
 			bsr	_ResumeMP3
 			bra.s	.done
 
-.isDirectory		movea.l		vmp_MUI_TempFilePointer(a5),a0
-			DOMETHOD2	vmp_MUI_DirlistDirlist(a5), #MUIM_Set, #MUIA_Dirlist_Directory, a0
+.isDirectory		movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_DirlistDirlist(a5),a0
+			INITSTACKTAG
+			movea.l	vmp_MUI_TempFilePointer(a5),a1
+			STACKREGTAG	a1, MUIA_Dirlist_Directory
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
 			movea.l	vmp_MUI_DirlistDirString(a5),a0
 			INITSTACKTAG
 			movea.l		vmp_MUI_TempFilePointer(a5),a1
@@ -853,6 +1004,15 @@ vmp_Method_MainWdwButtonPause	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
 				dc.l	MUIV_Notify_Window,2
 				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonPause
 
+vmp_Method_MainWdwButtonNext	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
+				dc.l	MUIV_Notify_Window,2
+				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonNext
+
+vmp_Method_MainWdwButtonPrevious
+				dc.l	MUIM_Notify,MUIA_Pressed,FALSE
+				dc.l	MUIV_Notify_Window,2
+				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonPrevious
+
 vmp_Method_MainWdwButtonPlaylist	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
 				dc.l	MUIV_Notify_Window,2
 				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonPlaylist
@@ -868,6 +1028,14 @@ vmp_Hook_MainWdwButtonPlay	ds.b	MLN_SIZE
 
 vmp_Hook_MainWdwButtonPause	ds.b	MLN_SIZE
 				dc.l	_MainWdwButtonPressedPause				; h_entry - Pointing to routine to be executed
+				dc.l	0,0							; h_SubEntry, h_data
+
+vmp_Hook_MainWdwButtonNext	ds.b	MLN_SIZE
+				dc.l	_MainWdwButtonPressedNext				; h_entry - Pointing to routine to be exeh^ed
+				dc.l	0,0							; h_SubEntry, h_data
+
+vmp_Hook_MainWdwButtonPrevious	ds.b	MLN_SIZE
+				dc.l	_MainWdwButtonPressedPrevious				; h_entry - Pointing to routine to be exeh^ed
 				dc.l	0,0							; h_SubEntry, h_data
 
 vmp_Hook_MainWdwButtonPlaylist	ds.b	MLN_SIZE

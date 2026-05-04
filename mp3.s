@@ -87,13 +87,15 @@ _NewMP3			movem.l	d0-d1/a0-a1/a6,-(sp)
 			;------------------------------------------------------------
 			;
 
-_CloseMP3		move.l	#0,vmp_Playing(a5)
+_CloseMP3		movem.l	a6,-(sp)
+			move.l	#0,vmp_Playing(a5)
 			moveq	#VMP_AUDIOCHANNEL,d0
 			bsr	_StopAudio
 			
 			movea.l	vmp_MPEGABase(a5),a6
 			movea.l	vmp_MP3_Stream(a5),a0
 			LVO	MPEGA_Close
+			movem.l	(sp)+,a6
 			rts
 
 

@@ -44,6 +44,7 @@
 			LONG	vmp_Quit
 			LONG	vmp_Playing
 			LONG	vmp_Paused
+			LONG	vmp_PlayingFrom					; Started from Dirlist or Playlist?
 			APTR	vmp_Intui_Window
 			APTR	vmp_Intui_UserPort
 			LONG	vmp_InterruptSignal
