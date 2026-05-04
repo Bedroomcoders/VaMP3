@@ -169,7 +169,7 @@ DOMETHOD0		MACRO						; \1=Object, \2=MethodID
 			move.l	sp,a1					; a1 = Msg array
 			movea.l	\1,a2					; a2 = Object
 			movea.l	-4(a2),a0				; a0 = Hook
-			movea.l	12(a0),a6				; a6 = Dispatcher
+			movea.l	8(a0),a6				; a6 = Dispatcher
 			jsr	(a6)					; Call Dispatcher
 			
 			addq.l	#4,sp					; Cleanup stack (1 long)
@@ -184,7 +184,7 @@ DOMETHOD1		MACRO						; \1=Object, \2=MethodID, \3=Arg1
 			move.l	sp,a1					; a1 = Msg array
 			movea.l	\1,a2					; a2 = Object
 			movea.l	-4(a2),a0				; a0 = Hook
-			movea.l	12(a0),a6				; a6 = Dispatcher
+			movea.l	8(a0),a6				; a6 = Dispatcher
 			jsr	(a6)					; Call Dispatcher
 			
 			addq.l	#8,sp					; Cleanup stack (2 longs)
@@ -200,7 +200,7 @@ DOMETHOD2		MACRO						; \1=Object, \2=MethodID, \3=Arg1, \4=Arg2
 			move.l	sp,a1					; a1 = Msg array
 			movea.l	\1,a2					; a2 = Object
 			movea.l	-4(a2),a0				; a0 = Hook
-			movea.l	12(a0),a6				; a6 = Dispatcher
+			movea.l	8(a0),a6				; a6 = Dispatcher
 			jsr	(a6)					; Call Dispatcher
 			
 			lea	12(sp),sp				; Cleanup stack (3 longs)
@@ -221,7 +221,7 @@ DOMETHOD7		MACRO						; \1=Object, \2=MethodID, \3=Arg1 to \9=Arg7
 			move.l	sp,a1					; a1 = Msg array
 			movea.l	\1,a2					; a2 = Object
 			movea.l	-4(a2),a0				; a0 = Hook
-			movea.l	12(a0),a6				; a6 = Dispatcher
+			movea.l	8(a0),a6				; a6 = Dispatcher
 			jsr	(a6)					; Call Dispatcher
 			
 			lea	32(sp),sp				; Cleanup stack (8 longs)
