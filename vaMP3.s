@@ -68,7 +68,8 @@
 			APTR	vmp_MUI_MainWdwVGroup
 			APTR	vmp_MUI_DirlistWindow
 			APTR	vmp_MUI_DirlistVGroup
-			APTR	vmp_MUI_DirlistDirlist
+			APTR	vmp_MUI_DirlistList
+			APTR	vmp_MUI_DirlistListview
 			APTR	vmp_MUI_DirlistButtonParent
 			APTR	vmp_MUI_DirlistButtonAddFile
 			APTR	vmp_MUI_DirlistButtonAddDir

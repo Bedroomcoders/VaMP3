@@ -121,7 +121,14 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			STACKADRTAG	vmp_StartDirectory,MUIA_Dirlist_Directory
 			STACKADRTAG	vmp_FilePatternToken,MUIA_Dirlist_AcceptPattern
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_DirlistDirlist(a5)				; Create MUI Dirlist
+			move.l	d0,vmp_MUI_DirlistList(a5)				; Create MUI Dirlist
+			beq	.error
+
+			lea	MUIC_Listview,a0
+			INITSTACKTAG
+			STACKREGTAG	d0, MUIA_Listview_List
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_DirlistListview(a5)				; Create MUI Listview
 			beq	.error
 
 			lea	MUIC_String,a0
@@ -161,7 +168,7 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			lea	MUIC_Group,a0
 			INITSTACKTAG
 			STACKREGTAG	vmp_MUI_DirlistHGroup2(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_DirlistDirlist(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistListview(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_DirlistHGroup1(a5), MUIA_Group_Child
 		;	STACKREGTAG	vmp_MUI_DirlistPopasl(a5), MUIA_Group_Child
 			STACKVALTAG	FALSE, MUIA_Group_Horiz
@@ -182,7 +189,7 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			beq	.error
 
 			; Connect DirString to DirList
-			DOMETHOD7	vmp_MUI_DirlistDirString(a5), #MUIM_Notify, #MUIA_String_Acknowledge, #MUIV_EveryTime, vmp_MUI_DirlistDirlist(a5), #3, #MUIM_Set, #MUIA_Dirlist_Directory, #MUIV_TriggerValue
+			DOMETHOD7	vmp_MUI_DirlistDirString(a5), #MUIM_Notify, #MUIA_String_Acknowledge, #MUIV_EveryTime, vmp_MUI_DirlistListview(a5), #3, #MUIM_Set, #MUIA_Dirlist_Directory, #MUIV_TriggerValue
 
 
 			; *** Playlist Window ***
@@ -201,7 +208,7 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_PlaylistList(a5)				; Create MUI List
 			beq	.error
 
-			lea	MUIC_List,a0
+			lea	MUIC_Listview,a0
 			INITSTACKTAG
 			STACKREGTAG	d0, MUIA_Listview_List
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
@@ -328,9 +335,9 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 			movea.l	vmp_UtilityBase(a5),a6
 			LVO	CallHookPkt
 
-			movea.l	vmp_MUI_DirlistDirlist(a5),a2
+			movea.l	vmp_MUI_DirlistListview(a5),a2
 			movea.l	-4(a2),a0
-			lea	vmp_Method_DirlistDirlist,a1
+			lea	vmp_Method_DirlistListview,a1
 			movea.l	vmp_UtilityBase(a5),a6
 			LVO	CallHookPkt
 
@@ -424,7 +431,7 @@ _MainWdwButtonPressedNext
 			beq.s	.playlist
 			bra.w	.done
 
-.dirlist		movea.l	vmp_MUI_DirlistDirlist(a5),a4
+.dirlist		movea.l	vmp_MUI_DirlistListview(a5),a4
 			lea	_DirlistPressedDirlist,a3
 			bra.s	.findNext
 
@@ -487,7 +494,7 @@ _MainWdwButtonPressedPrevious
 			beq.s	.playlist
 			bra.w	.done
 
-.dirlist		movea.l	vmp_MUI_DirlistDirlist(a5),a4
+.dirlist		movea.l	vmp_MUI_DirlistListview(a5),a4
 			lea	_DirlistPressedDirlist,a3
 			bra.s	.findPrev
 
@@ -587,7 +594,7 @@ _DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
 			; Get item path
 			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
 			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_DirlistDirlist(a5),a0
+			movea.l	vmp_MUI_DirlistListview(a5),a0
 			move.l	#MUIA_Dirlist_Path,d0
 			lea	vmp_MUI_TempFilePointer(a5),a1
 			LVO	GetAttr
@@ -606,7 +613,7 @@ _DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
 			; Get FileInfoBlock
 			subq.l	#4,sp
 			move.l	sp,a1
-			DOMETHOD2	vmp_MUI_DirlistDirlist(a5), #MUIM_List_GetEntry, #MUIV_List_GetEntry_Active, a1
+			DOMETHOD2	vmp_MUI_DirlistListview(a5), #MUIM_List_GetEntry, #MUIV_List_GetEntry_Active, a1
 			move.l	(sp)+,a0
 			
 			move.l	fib_DirEntryType(a0),d0
@@ -623,7 +630,7 @@ _DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
 			bra.s	.done
 
 .isDirectory		movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_DirlistDirlist(a5),a0
+			movea.l	vmp_MUI_DirlistListview(a5),a0
 			INITSTACKTAG
 			movea.l	vmp_MUI_TempFilePointer(a5),a1
 			STACKREGTAG	a1, MUIA_Dirlist_Directory
@@ -1045,16 +1052,16 @@ vmp_Method_DirlistButtonClose	dc.l	MUIM_Notify,MUIA_Window_CloseRequest,TRUE
 				dc.l	MUIV_Notify_Application,2
 				dc.l	MUIM_CallHook,vmp_Hook_DirlistButtonClose
 
-vmp_Method_DirlistDirlist	dc.l	MUIM_Notify,MUIA_Listview_DoubleClick,TRUE
+vmp_Method_DirlistListview	dc.l	MUIM_Notify,MUIA_Listview_DoubleClick,TRUE
 				dc.l	MUIV_Notify_Window,2
-				dc.l	MUIM_CallHook,vmp_Hook_DirlistDirlist
+				dc.l	MUIM_CallHook,vmp_Hook_DirlistListview
 
 				; Dirlist window hooks
 vmp_Hook_DirlistButtonClose	ds.b	MLN_SIZE
 				dc.l	_DirlistButtonPressedClose
 				dc.l	0,0
 
-vmp_Hook_DirlistDirlist		ds.b	MLN_SIZE
+vmp_Hook_DirlistListview		ds.b	MLN_SIZE
 				dc.l	_DirlistPressedDirlist
 				dc.l	0,0
 
