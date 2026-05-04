@@ -138,23 +138,24 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_DirlistDirString(a5)				; Create MUI String
 			beq	.error
 
-		;	lea	MUIC_Popasl,a0
-		;	INITSTACKTAG
-		;	STACKVALTAG	ASL_FileRequest, MUIA_Popasl_Type
-		;	STACKVALTAG	TRUE, ASLFR_DrawersOnly
-		;	STACKREGTAG	vmp_MUI_DirlistDirString(a5), MUIA_Popstring_String
-		;	CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-		;	move.l	d0,vmp_MUI_DirlistPopasl(a5)				; Create MUI Popup ASL requester
-		;	beq	.error
-
-			lea	MUIC_Group,a0
+			lea	MUIC_Popasl,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_DirlistDirString(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_DirlistButtonParent(a5), MUIA_Group_Child
-			STACKVALTAG	TRUE, MUIA_Group_Horiz
+			STACKVALTAG	ASL_FileRequest, MUIA_Popasl_Type
+			STACKVALTAG	TRUE, ASLFR_DrawersOnly
+			STACKREGTAG	vmp_MUI_DirlistDirString(a5), MUIA_Popstring_String
+			STACKREGTAG	vmp_MUI_DirlistButtonParent(a5), MUIA_Popstring_Button
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_DirlistHGroup1(a5)				; Create Playlist Horizontal Group 1
+			move.l	d0,vmp_MUI_DirlistPopasl(a5)				; Create MUI Popup ASL requester
 			beq	.error
+
+		;	lea	MUIC_Group,a0
+		;	INITSTACKTAG
+		;	STACKREGTAG	vmp_MUI_DirlistDirString(a5), MUIA_Group_Child
+		;	STACKREGTAG	vmp_MUI_DirlistButtonParent(a5), MUIA_Group_Child
+		;	STACKVALTAG	TRUE, MUIA_Group_Horiz
+		;	CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+		;	move.l	d0,vmp_MUI_DirlistHGroup1(a5)				; Create Playlist Horizontal Group 1
+		;	beq	.error
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
@@ -169,8 +170,8 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			INITSTACKTAG
 			STACKREGTAG	vmp_MUI_DirlistHGroup2(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_DirlistListview(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_DirlistHGroup1(a5), MUIA_Group_Child
-		;	STACKREGTAG	vmp_MUI_DirlistPopasl(a5), MUIA_Group_Child
+		;	STACKREGTAG	vmp_MUI_DirlistHGroup1(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistPopasl(a5), MUIA_Group_Child
 			STACKVALTAG	FALSE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_DirlistVGroup(a5)				; Create MUI Vertical Group
