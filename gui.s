@@ -439,39 +439,37 @@ _MainWdwButtonPressedNext
 			move.l	#MUIA_List_Active,d0
 			movea.l	sp,a1							; Storage pointer = stack
 			LVO	GetAttr
-			move.l	(sp)+,d2						; d2 = old index
+			move.l	(sp)+,d2						; d2 = current index
 
-			; Select next item
-			move.l	d2,d3
-			addq.l	#1,d3
-			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	a4,a0
-			INITSTACKTAG
-			STACKREGTAG	d3, MUIA_List_Active
-			CALLSTACKTAG	_LVOSetAttrsA,a1
+.loopNext		addq.l	#1,d2							; Check next index
 
-			; Get the new active index into d3
-			subq.l	#4,sp
-			movea.l	a4,a0
-			move.l	#MUIA_List_Active,d0
-			movea.l	sp,a1
-			LVO	GetAttr
-			move.l	(sp)+,d3						; d3 = new index
+			; Get entry at index d2
+			subq.l	#4,sp							; Allocate 4 bytes for the result
+			move.l	sp,a1							; a1 = pointer to our 4 bytes
+			DOMETHOD2 a4, #MUIM_List_GetEntry, d2, a1
+			move.l	(sp)+,a0						; Pop the result directly into a0!
 
-			cmp.l	d2,d3
-			beq.w	.done							; We hit the bottom, just stop.
+			tst.l	a0
+			beq.w	.done							; End of list (GetEntry returns NULL)
 
 			; If playing from Dirlist, we must skip directories!
 			cmp.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
 			bne.s	.play
 
-			DOMETHOD1 a4, #MUIM_List_GetEntry, #MUIV_List_GetEntry_Active
-			movea.l	d0,a0
 			move.l	fib_DirEntryType(a0),d0
-			bgt.s	.findNext						; It is a directory! Keep moving down!
+			bgt.s	.loopNext						; It is a directory! Keep moving down!
 
-.play			jsr	(a3)							; Call the right playback routine (in a3)
-.done			movem.l	(sp)+,d2-d3/a3-a6
+.play			; We found the file (or we are in Playlist)! Set it as active!
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a4,a0
+			INITSTACKTAG
+			STACKREGTAG	d2, MUIA_List_Active
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			jsr	(a3)							; Call the right playback routine (in a3)
+
+.done			moveq	#0,d0
+			movem.l	(sp)+,d2-d3/a3-a6
 			rts
 
 
@@ -504,41 +502,38 @@ _MainWdwButtonPressedPrevious
 			move.l	#MUIA_List_Active,d0
 			movea.l	sp,a1							; Storage pointer = stack
 			LVO	GetAttr
-			move.l	(sp)+,d2						; d2 = old index
+			move.l	(sp)+,d2						; d2 = current index
 
-			; Select previous item
-			move.l	d2,d3
-			subq.l	#1,d3
-			bmi.s	.done							; Stop if we hit the top
-			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	a4,a0
-			INITSTACKTAG
-			STACKREGTAG	d3, MUIA_List_Active
-			CALLSTACKTAG	_LVOSetAttrsA,a1
+.loopPrev		subq.l	#1,d2							; Check previous index
+			bmi.w	.done							; We hit the top, just stop
 
-			; Get the new active index into d3
-			subq.l	#4,sp
-			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	a4,a0
-			move.l	#MUIA_List_Active,d0
-			movea.l	sp,a1
-			LVO	GetAttr
-			move.l	(sp)+,d3						; d3 = new index
+			; Get entry at index d2
+			subq.l	#4,sp							; Allocate 4 bytes for the result
+			move.l	sp,a1							; a1 = pointer to our 4 bytes
+			DOMETHOD2 a4, #MUIM_List_GetEntry, d2, a1
+			move.l	(sp)+,a0						; Pop the result directly into a0!
 
-			cmp.l	d2,d3
-			beq.w	.done							; We hit the top, just stop.
+			tst.l	a0
+			beq.w	.done							; Failsafe (GetEntry returns NULL)
 
 			; If playing from Dirlist, we must skip directories!
 			cmp.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
 			bne.s	.play
 
-			DOMETHOD1 a4, #MUIM_List_GetEntry, #MUIV_List_GetEntry_Active
 			movea.l	d0,a0
 			move.l	fib_DirEntryType(a0),d0
-			bgt.s	.findPrev						; It is a directory! Keep moving up!
+			bgt.s	.loopPrev						; It is a directory! Keep moving up!
 
-.play			jsr	(a3)							; Call the right playback routine (in a3)
-.done			movem.l	(sp)+,d2-d3/a3-a6
+.play			; We found the file (or we are in Playlist)! Set it as active!
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a4,a0
+			INITSTACKTAG
+			STACKREGTAG	d2, MUIA_List_Active
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			jsr	(a3)							; Call the right playback routine (in a3)
+.done			moveq	#0,d0
+			movem.l	(sp)+,d2-d3/a3-a6
 			rts
 
 
@@ -609,8 +604,11 @@ _DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
 
 
 			; Get FileInfoBlock
-			DOMETHOD1	vmp_MUI_DirlistDirlist(a5), #MUIM_List_GetEntry, #MUIV_List_GetEntry_Active
-			movea.l	d0,a0
+			subq.l	#4,sp
+			move.l	sp,a1
+			DOMETHOD2	vmp_MUI_DirlistDirlist(a5), #MUIM_List_GetEntry, #MUIV_List_GetEntry_Active, a1
+			move.l	(sp)+,a0
+			
 			move.l	fib_DirEntryType(a0),d0
 			blt.s	.isFile
 			bgt.s	.isDirectory
