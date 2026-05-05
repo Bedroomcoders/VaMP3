@@ -76,7 +76,6 @@
 			APTR	vmp_MUI_DirlistDirString
 			APTR	vmp_MUI_DirlistPopasl
 			APTR	vmp_MUI_DirlistHGroup1
-			APTR	vmp_MUI_DirlistHGroup2
 			LONG	vmp_MUI_TempFilePointer
 			APTR	vmp_MUI_PlaylistWindow
 			APTR	vmp_MUI_PlaylistVGroup

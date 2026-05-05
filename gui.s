@@ -24,7 +24,7 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			beq.w	.error
 
 			CREATEMUIBUTTON	vmp_MainWdwDirlistTitle
-			move.l	d0,vmp_MUI_MainWdwButtonDirlist(a5)			; Create Open Button
+			move.l	d0,vmp_MUI_MainWdwButtonDirlist(a5)			; Create Dirlist Button
 			beq.w	.error
 
 			CREATEMUICUSTOMBUTTON	img_Stop_Raw
@@ -90,6 +90,7 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			STACKVALTAG	VMP_MAINWINDOWWIDTH, MUIA_Window_Width
 			STACKVALTAG	VMP_MAINWINDOWHEIGHT, MUIA_Window_Height
 			STACKVALTAG	TRUE, MUIA_Window_CloseGadget
+			STACKVALTAG	TRUE, MUIA_Window_AppWindow
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1				; Create MUI Window
 			move.l	d0,vmp_MUI_MainWindow(a5)
 			beq	.error
@@ -130,7 +131,7 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_DirlistDirString(a5)				; Create MUI String
 			beq	.error
 
-			CREATEMUIIMAGEBUTTON MUII_PopDrawer
+			CREATEMUIIMAGEBUTTON MUII_PopDrawer				; Create Drawer button
 			move.l	d0,vmp_MUI_DirlistPopDrawer(a5)
 			beq.w	.error
 
@@ -144,28 +145,18 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_DirlistPopasl(a5)				; Create MUI Popup ASL requester
 			beq	.error
 
-		;	lea	MUIC_Group,a0
-		;	INITSTACKTAG
-		;	STACKREGTAG	vmp_MUI_DirlistDirString(a5), MUIA_Group_Child
-		;	STACKREGTAG	vmp_MUI_DirlistButtonParent(a5), MUIA_Group_Child
-		;	STACKVALTAG	TRUE, MUIA_Group_Horiz
-		;	CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-		;	move.l	d0,vmp_MUI_DirlistHGroup1(a5)				; Create Playlist Horizontal Group 1
-		;	beq	.error
-
 			lea	MUIC_Group,a0
 			INITSTACKTAG
 			STACKREGTAG	vmp_MUI_DirlistButtonAddToPL(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_DirlistHGroup2(a5)				; Create Playlist Horizontal Group 2
+			move.l	d0,vmp_MUI_DirlistHGroup1(a5)				; Create Playlist Horizontal Group 1
 			beq	.error
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_DirlistHGroup2(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistHGroup1(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_DirlistListview(a5), MUIA_Group_Child
-		;	STACKREGTAG	vmp_MUI_DirlistHGroup1(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_DirlistPopasl(a5), MUIA_Group_Child
 			STACKVALTAG	FALSE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
@@ -324,6 +315,12 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 			movea.l	vmp_UtilityBase(a5),a6
 			LVO	CallHookPkt
 
+			movea.l	vmp_MUI_MainWindow(a5),a2
+			movea.l	-4(a2),a0
+			lea	vmp_Method_MainWdwAppMessage,a1
+			movea.l	vmp_UtilityBase(a5),a6
+			LVO	CallHookPkt
+
 			; Dirlist window hooks
 			movea.l	vmp_MUI_DirlistWindow(a5),a2
 			movea.l	-4(a2),a0
@@ -362,12 +359,12 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 
 
 			;------------------------------------------------------------
-			; _MainWdwButtonPressedOpen
+			; _MainWdwButtonPressedDirlist
 			;------------------------------------------------------------
 
 _MainWdwButtonPressedDirlist
-			movem.l	a0/a5-a6,-(sp)
-			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
+			movem.l	a0-a1/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
 
 			; *** Open Dirlist window ***
 			movea.l	vmp_IntuitionBase(a5),a6
@@ -377,17 +374,8 @@ _MainWdwButtonPressedDirlist
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
 
-		;	bsr	_PauseMP3
-		;	lea	vmp_FilenameBuffer,a0
-		;	bsr	_AskFile
-		;	bsr	_ResumeMP3
-		;	tst.l	d0
-		;	beq.s	.done
-						
-		;	lea	vmp_FilenameBuffer,a0
-		;	bsr	_NewMP3
-
-.done			movem.l	(sp)+,a0/a5-a6
+.done			moveq	#0,d0
+			movem.l	(sp)+,a0-a1/a5-a6
 			rts
 
 
@@ -396,11 +384,13 @@ _MainWdwButtonPressedDirlist
 			; _MainWdwButtonPressedPlay
 			;------------------------------------------------------------
 
-_MainWdwButtonPressedPlay	movem.l	a5,-(sp)
+_MainWdwButtonPressedPlay
+			movem.l	a5,-(sp)
+			movea.l	vmp_StructPointer,a5
 
-			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Strruct in a5.
 			bsr	_ResumeMP3
 
+			moveq	#0,d0
 			movem.l	(sp)+,a5
 			rts
 
@@ -410,11 +400,13 @@ _MainWdwButtonPressedPlay	movem.l	a5,-(sp)
 			; _MainWdwButtonPressedPause
 			;------------------------------------------------------------
 
-_MainWdwButtonPressedPause	movem.l	a5,-(sp)
+_MainWdwButtonPressedPause
+			movem.l	a5,-(sp)
+			movea.l	vmp_StructPointer,a5
 
-			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
 			bsr	_PauseMP3
 
+			moveq	#0,d0
 			movem.l	(sp)+,a5
 			rts
 
@@ -474,6 +466,7 @@ _MainWdwButtonPressedNext
 .done			moveq	#0,d0
 			movem.l	(sp)+,d2-d3/a3-a6
 			rts
+
 
 
 			;------------------------------------------------------------
@@ -538,9 +531,9 @@ _MainWdwButtonPressedPrevious
 			; _MainWdwButtonPressedPlaylist
 			;------------------------------------------------------------
 
-_MainWdwButtonPressedPlaylist	movem.l	a0-a1/a5-a6,-(sp)
-			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
-
+_MainWdwButtonPressedPlaylist
+			movem.l	a0-a1/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
 
 			; *** Open Playlist window ***
 			movea.l	vmp_IntuitionBase(a5),a6
@@ -549,7 +542,23 @@ _MainWdwButtonPressedPlaylist	movem.l	a0-a1/a5-a6,-(sp)
 			STACKVALTAG	1,MUIA_Window_Open
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
+			moveq	#0,d0
 			movem.l	(sp)+,a0-a1/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _MainWdwGotAppMessage
+			;------------------------------------------------------------
+
+_MainWdwGotAppMessage	movem.l	a5,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+
+
+			moveq	#0,d0
+			movem.l	(sp)+,a5
 			rts
 
 
@@ -559,8 +568,8 @@ _MainWdwButtonPressedPlaylist	movem.l	a0-a1/a5-a6,-(sp)
 			;------------------------------------------------------------
 
 _DirlistButtonPressedClose
-			movem.l	a0/a5-a6,-(sp)
-			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
+			movem.l	a0-a1/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
 
 			; *** Close Dirlist window ***
 			movea.l	vmp_IntuitionBase(a5),a6
@@ -569,7 +578,8 @@ _DirlistButtonPressedClose
 			STACKVALTAG	0,MUIA_Window_Open
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
-.done			movem.l	(sp)+,a0/a5-a6
+.done			moveq	#0,d0
+			movem.l	(sp)+,a0-a1/a5-a6
 			rts
 
 
@@ -578,10 +588,10 @@ _DirlistButtonPressedClose
 			; _DirlistPressedDirlist
 			;------------------------------------------------------------
 
-_DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
+_DirlistPressedDirlist	movem.l	a0-a1/a5-a6,-(sp)
 
 			; Get item path
-			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
+			movea.l	vmp_StructPointer,a5
 			movea.l	vmp_IntuitionBase(a5),a6
 			movea.l	vmp_MUI_DirlistListview(a5),a0
 			move.l	#MUIA_Dirlist_Path,d0
@@ -639,7 +649,8 @@ _DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
 			STACKREGTAG	a1, MUIA_String_Contents
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
-.done			movem.l	(sp)+,a0/a5-a6
+.done			moveq	#0,d0
+			movem.l	(sp)+,a0-a1/a5-a6
 			rts
 
 
@@ -649,12 +660,12 @@ _DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
 			;------------------------------------------------------------
 
 _DirlistDirChanged	movem.l	a5,-(sp)
+			movea.l	vmp_StructPointer,a5
 
-			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
 			move.l	#-1,vmp_PlayingIndex(a5)
 
-			movem.l	(sp)+,a5
 			moveq	#0,d0
+			movem.l	(sp)+,a5
 			rts
 
 
@@ -664,8 +675,8 @@ _DirlistDirChanged	movem.l	a5,-(sp)
 			;------------------------------------------------------------
 
 _PlaylistButtonPressedClose
-			movem.l	a0/a5-a6,-(sp)
-			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
+			movem.l	a0-a1/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
 
 			; *** Close Playlist window ***
 			movea.l	vmp_IntuitionBase(a5),a6
@@ -674,7 +685,8 @@ _PlaylistButtonPressedClose
 			STACKVALTAG	0,MUIA_Window_Open
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
-.done			movem.l	(sp)+,a0/a5-a6
+.done			moveq	#0,d0
+			movem.l	(sp)+,a0-a1/a5-a6
 			rts
 
 
@@ -685,7 +697,7 @@ _PlaylistButtonPressedClose
 
 _PlaylistButtonPressedAddFile
 			movem.l	a0/a5-a6,-(sp)
-			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
+			movea.l	vmp_StructPointer,a5
 
 			bsr	_PauseMP3
 			lea	vmp_FilenameBuffer,a0
@@ -697,7 +709,8 @@ _PlaylistButtonPressedAddFile
 			lea	vmp_FilenameBuffer,a0
 			bsr	_NewMP3
 
-.done			movem.l	(sp)+,a0/a5-a6
+.done			moveq	#0,d0
+			movem.l	(sp)+,a0/a5-a6
 			rts
 
 
@@ -1033,6 +1046,11 @@ vmp_Method_MainWdwButtonPlaylist	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
 				dc.l	MUIV_Notify_Window,2
 				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonPlaylist
 
+vmp_Method_MainWdwAppMessage	dc.l	MUIM_Notify,MUIA_AppMessage,MUIV_EveryTime
+				dc.l	MUIV_Notify_Self,2
+				dc.l	MUIM_CallHook,vmp_Hook_MainWdwAppMessage
+
+
 				; Main windows hooks
 vmp_Hook_MainWdwButtonDirlist	ds.b	MLN_SIZE
 				dc.l	_MainWdwButtonPressedDirlist				; h_entry - Pointing to routine to be executed
@@ -1056,6 +1074,10 @@ vmp_Hook_MainWdwButtonPrevious	ds.b	MLN_SIZE
 
 vmp_Hook_MainWdwButtonPlaylist	ds.b	MLN_SIZE
 				dc.l	_MainWdwButtonPressedPlaylist				; h_entry - Pointing to routine to be executed
+				dc.l	0,0							; h_SubEntry, h_data
+
+vmp_Hook_MainWdwAppMessage	ds.b	MLN_SIZE
+				dc.l	_MainWdwGotAppMessage					; h_entry - Pointing to routine to be hecuted
 				dc.l	0,0							; h_SubEntry, h_data
 
 				; Dirlist window methods
