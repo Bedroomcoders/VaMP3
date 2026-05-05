@@ -45,6 +45,7 @@
 			LONG	vmp_Playing
 			LONG	vmp_Paused
 			LONG	vmp_PlayingFrom					; Started from Dirlist or Playlist?
+			LONG	vmp_PlayingIndex				; Which song in the list?
 			APTR	vmp_Intui_Window
 			APTR	vmp_Intui_UserPort
 			LONG	vmp_InterruptSignal
@@ -70,7 +71,7 @@
 			APTR	vmp_MUI_DirlistVGroup
 			APTR	vmp_MUI_DirlistList
 			APTR	vmp_MUI_DirlistListview
-			APTR	vmp_MUI_DirlistButtonParent
+			APTR	vmp_MUI_DirlistPopDrawer
 			APTR	vmp_MUI_DirlistButtonAddFile
 			APTR	vmp_MUI_DirlistButtonAddDir
 			APTR	vmp_MUI_DirlistDirString

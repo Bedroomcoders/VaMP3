@@ -105,10 +105,6 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_DirlistButtonAddDir(a5)			; Create Add Dir Button
 			beq.w	.error
 
-			CREATEMUIIMAGEBUTTON MUII_ArrowUp
-			move.l	d0,vmp_MUI_DirlistButtonParent(a5)
-			beq.w	.error
-			
 			movea.l	vmp_DosBase(a5),a6
 			move.l	#vmp_FilePattern,d1
 			move.l	#vmp_FilePatternToken,d2
@@ -138,12 +134,16 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_DirlistDirString(a5)				; Create MUI String
 			beq	.error
 
+			CREATEMUIIMAGEBUTTON MUII_PopDrawer
+			move.l	d0,vmp_MUI_DirlistPopDrawer(a5)
+			beq.w	.error
+
 			lea	MUIC_Popasl,a0
 			INITSTACKTAG
 			STACKVALTAG	ASL_FileRequest, MUIA_Popasl_Type
 			STACKVALTAG	TRUE, ASLFR_DrawersOnly
 			STACKREGTAG	vmp_MUI_DirlistDirString(a5), MUIA_Popstring_String
-			STACKREGTAG	vmp_MUI_DirlistButtonParent(a5), MUIA_Popstring_Button
+			STACKREGTAG	vmp_MUI_DirlistPopDrawer(a5), MUIA_Popstring_Button
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_DirlistPopasl(a5)				; Create MUI Popup ASL requester
 			beq	.error
@@ -440,14 +440,7 @@ _MainWdwButtonPressedNext
 			; lea	_PlaylistPressedPlaylist,a3				; TODO: Create this routine!
 			bra.w	.done
 
-.findNext		; Get current active index into d2
-			subq.l	#4,sp							; Allocate 4 bytes on stack for GetAttr
-			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	a4,a0
-			move.l	#MUIA_List_Active,d0
-			movea.l	sp,a1							; Storage pointer = stack
-			LVO	GetAttr
-			move.l	(sp)+,d2						; d2 = current index
+.findNext		move.l	vmp_PlayingIndex(a5),d2
 
 .loopNext		addq.l	#1,d2							; Check next index
 
@@ -503,14 +496,7 @@ _MainWdwButtonPressedPrevious
 			; lea	_PlaylistPressedPlaylist,a3				; TODO: Create this routine!
 			bra.w	.done
 
-.findPrev		; Get current active index into d2
-			subq.l	#4,sp							; Allocate 4 bytes on stack for GetAttr
-			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	a4,a0
-			move.l	#MUIA_List_Active,d0
-			movea.l	sp,a1							; Storage pointer = stack
-			LVO	GetAttr
-			move.l	(sp)+,d2						; d2 = current index
+.findPrev		move.l	vmp_PlayingIndex(a5),d2
 
 .loopPrev		subq.l	#1,d2							; Check previous index
 			bmi.w	.done							; We hit the top, just stop
@@ -602,7 +588,6 @@ _DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
 			tst.l	d0
 			beq.s	.done
 
-			movea.l	vmp_IntuitionBase(a5),a6
 			movea.l	vmp_MUI_MainWdwStatusText(a5),a0
 			INITSTACKTAG
 			movea.l		vmp_MUI_TempFilePointer(a5),a1
@@ -623,6 +608,15 @@ _DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
 			bra.s	.done
 
 .isFile
+			movea.l	vmp_IntuitionBase(a5),a6
+			subq.l	#4,sp							; Allocate 4 bytes on stack for GetAttr
+			movea.l	vmp_MUI_DirlistListview(a5),a0
+			move.l	#MUIA_List_Active,d0
+			movea.l	sp,a1							; Storage pointer = stack
+			LVO	GetAttr
+			move.l	(sp)+,d0						; d0 = current index
+			move.l	d0,vmp_PlayingIndex(a5)
+
 			move.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
 			bsr	_PauseMP3
 			movea.l		vmp_MUI_TempFilePointer(a5),a0
