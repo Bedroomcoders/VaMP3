@@ -57,7 +57,7 @@
 			APTR	vmp_MUI_MainWindow
 			APTR	vmp_MUI_MainWdwGroup
 			APTR	vmp_MUI_MainWdwButtonPlaylist
-			APTR	vmp_MUI_MainWdwButtonOpen
+			APTR	vmp_MUI_MainWdwButtonDirlist
 			APTR	vmp_MUI_MainWdwButtonStop
 			APTR	vmp_MUI_MainWdwButtonPause
 			APTR	vmp_MUI_MainWdwButtonPlay
@@ -72,8 +72,7 @@
 			APTR	vmp_MUI_DirlistList
 			APTR	vmp_MUI_DirlistListview
 			APTR	vmp_MUI_DirlistPopDrawer
-			APTR	vmp_MUI_DirlistButtonAddFile
-			APTR	vmp_MUI_DirlistButtonAddDir
+			APTR	vmp_MUI_DirlistButtonAddToPL
 			APTR	vmp_MUI_DirlistDirString
 			APTR	vmp_MUI_DirlistPopasl
 			APTR	vmp_MUI_DirlistHGroup1

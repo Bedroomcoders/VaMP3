@@ -23,8 +23,8 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_MainWdwButtonPlaylist(a5)			; Create Playlist Button
 			beq.w	.error
 
-			CREATEMUIBUTTON	vmp_MainWdwOpenTitle
-			move.l	d0,vmp_MUI_MainWdwButtonOpen(a5)			; Create Open Button
+			CREATEMUIBUTTON	vmp_MainWdwDirlistTitle
+			move.l	d0,vmp_MUI_MainWdwButtonDirlist(a5)			; Create Open Button
 			beq.w	.error
 
 			CREATEMUICUSTOMBUTTON	img_Stop_Raw
@@ -54,7 +54,7 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			lea	MUIC_Group,a0
 			INITSTACKTAG
 			STACKREGTAG	vmp_MUI_MainWdwButtonPlaylist(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_MainWdwButtonOpen(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwButtonDirlist(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_MainWdwHGroup1(a5)				; Create MUI Horizontal Group 1
@@ -97,12 +97,8 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 
 			; *** Dirlist Window ***
 			
-			CREATEMUIBUTTON	vmp_DirlistAddFileTitle
-			move.l	d0,vmp_MUI_DirlistButtonAddFile(a5)			; Create Add File Button
-			beq.w	.error
-
-			CREATEMUIBUTTON	vmp_DirlistAddDirTitle
-			move.l	d0,vmp_MUI_DirlistButtonAddDir(a5)			; Create Add Dir Button
+			CREATEMUIBUTTON	vmp_DirlistAddToPLTitle
+			move.l	d0,vmp_MUI_DirlistButtonAddToPL(a5)			; Create Add to Playlist Button
 			beq.w	.error
 
 			movea.l	vmp_DosBase(a5),a6
@@ -114,7 +110,7 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			movea.l	vmp_MUIBase(a5),a6
 			lea	MUIC_Dirlist,a0
 			INITSTACKTAG
-			STACKADRTAG	vmp_StartDirectory,MUIA_Dirlist_Directory
+		;	STACKADRTAG	vmp_StartDirectory,MUIA_Dirlist_Directory
 			STACKADRTAG	vmp_FilePatternToken,MUIA_Dirlist_AcceptPattern
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_DirlistList(a5)				; Create MUI Dirlist
@@ -159,8 +155,7 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_DirlistButtonAddDir(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_DirlistButtonAddFile(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistButtonAddToPL(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_DirlistHGroup2(a5)				; Create Playlist Horizontal Group 2
@@ -323,9 +318,9 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 			movea.l	vmp_UtilityBase(a5),a6
 			LVO	CallHookPkt
 
-			movea.l	vmp_MUI_MainWdwButtonOpen(a5),a2
+			movea.l	vmp_MUI_MainWdwButtonDirlist(a5),a2
 			movea.l	-4(a2),a0
-			lea	vmp_Method_MainWdwButtonOpen,a1
+			lea	vmp_Method_MainWdwButtonDirlist,a1
 			movea.l	vmp_UtilityBase(a5),a6
 			LVO	CallHookPkt
 
@@ -339,6 +334,12 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 			movea.l	vmp_MUI_DirlistListview(a5),a2
 			movea.l	-4(a2),a0
 			lea	vmp_Method_DirlistListview,a1
+			movea.l	vmp_UtilityBase(a5),a6
+			LVO	CallHookPkt
+
+			movea.l	vmp_MUI_DirlistList(a5),a2
+			movea.l	-4(a2),a0
+			lea	vmp_Method_DirlistDirChanged,a1
 			movea.l	vmp_UtilityBase(a5),a6
 			LVO	CallHookPkt
 
@@ -364,7 +365,8 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 			; _MainWdwButtonPressedOpen
 			;------------------------------------------------------------
 
-_MainWdwButtonPressedOpen	movem.l	a0/a5-a6,-(sp)
+_MainWdwButtonPressedDirlist
+			movem.l	a0/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
 
 			; *** Open Dirlist window ***
@@ -638,6 +640,21 @@ _DirlistPressedDirlist	movem.l	a0/a5-a6,-(sp)
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
 .done			movem.l	(sp)+,a0/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _DirlistDirChanged
+			;------------------------------------------------------------
+
+_DirlistDirChanged	movem.l	a5,-(sp)
+
+			movea.l	vmp_StructPointer,a5					; a5 is not preserved in a hook. Reload our Struct in a5.
+			move.l	#-1,vmp_PlayingIndex(a5)
+
+			movem.l	(sp)+,a5
+			moveq	#0,d0
 			rts
 
 
@@ -946,14 +963,13 @@ _SetStatus		movem.l	d0-d1/a0-a1/a6,-(sp)
 				; Main window
 vmp_MainWindowTitle		dc.b	"VaMP3 v0.11",0
 vmp_MainWdwPlaylistTitle	dc.b	"Playlist",0
-vmp_MainWdwOpenTitle		dc.b	"Open",0
+vmp_MainWdwDirlistTitle		dc.b	"Dirlist",0
 
 				; Dirlist window
 vmp_DirlistWindowTitle		dc.b	"Directory listing",0
-vmp_DirlistAddFileTitle		dc.b	"Add file",0
-vmp_DirlistAddDirTitle		dc.b	"Add dirctory",0
+vmp_DirlistAddToPLTitle		dc.b	"Add to playlist",0
 
-vmp_StartDirectory		dc.b	"DH2:",0
+;vmp_StartDirectory		dc.b	"DH2:",0
 vmp_FilePattern			dc.b	"#?.mp3",0
 vmp_FilePatternToken		ds.b	32
 
@@ -992,9 +1008,9 @@ vmp_Method_MainWdwWindowSetup	dc.l	MUIM_Notify,MUIA_Window_CloseRequest,TRUE
 				dc.l	MUIV_Notify_Application,2
 				dc.l	MUIM_Application_ReturnID,MUIV_Application_ReturnID_Quit
 
-vmp_Method_MainWdwButtonOpen	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
+vmp_Method_MainWdwButtonDirlist	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
 				dc.l	MUIV_Notify_Window,2
-				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonOpen
+				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonDirlist
 
 vmp_Method_MainWdwButtonPlay	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
 				dc.l	MUIV_Notify_Window,2
@@ -1018,8 +1034,8 @@ vmp_Method_MainWdwButtonPlaylist	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
 				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonPlaylist
 
 				; Main windows hooks
-vmp_Hook_MainWdwButtonOpen	ds.b	MLN_SIZE
-				dc.l	_MainWdwButtonPressedOpen				; h_entry - Pointing to routine to be executed
+vmp_Hook_MainWdwButtonDirlist	ds.b	MLN_SIZE
+				dc.l	_MainWdwButtonPressedDirlist				; h_entry - Pointing to routine to be executed
 				dc.l	0,0							; h_SubEntry, h_data
 
 vmp_Hook_MainWdwButtonPlay	ds.b	MLN_SIZE
@@ -1051,6 +1067,10 @@ vmp_Method_DirlistListview	dc.l	MUIM_Notify,MUIA_Listview_DoubleClick,TRUE
 				dc.l	MUIV_Notify_Window,2
 				dc.l	MUIM_CallHook,vmp_Hook_DirlistListview
 
+vmp_Method_DirlistDirChanged	dc.l	MUIM_Notify,MUIA_Dirlist_Directory,MUIV_EveryTime
+				dc.l	MUIV_Notify_Self,2
+				dc.l	MUIM_CallHook,vmp_Hook_DirlistDirChanged
+
 				; Dirlist window hooks
 vmp_Hook_DirlistButtonClose	ds.b	MLN_SIZE
 				dc.l	_DirlistButtonPressedClose
@@ -1058,6 +1078,10 @@ vmp_Hook_DirlistButtonClose	ds.b	MLN_SIZE
 
 vmp_Hook_DirlistListview		ds.b	MLN_SIZE
 				dc.l	_DirlistPressedDirlist
+				dc.l	0,0
+
+vmp_Hook_DirlistDirChanged	ds.b	MLN_SIZE
+				dc.l	_DirlistDirChanged
 				dc.l	0,0
 
 
