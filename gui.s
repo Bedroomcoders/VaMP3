@@ -439,11 +439,9 @@ _MainWdwButtonPressedNext
 .loopNext		addq.l	#1,d2							; Check next index
 
 			; Get entry at index d2
-			subq.l	#4,sp							; Allocate 4 bytes for the result
-			move.l	sp,a1							; a1 = pointer to our 4 bytes
+			lea	vmp_TempVariable(a5),a1
 			DOMETHOD2 a4, #MUIM_List_GetEntry, d2, a1
-			move.l	(sp)+,a0						; Pop the result directly into a0!
-
+			move.l	vmp_TempVariable(a5),a0
 			tst.l	a0
 			beq.w	.done							; End of list (GetEntry returns NULL)
 
@@ -497,11 +495,9 @@ _MainWdwButtonPressedPrevious
 			bmi.w	.done							; We hit the top, just stop
 
 			; Get entry at index d2
-			subq.l	#4,sp							; Allocate 4 bytes for the result
-			move.l	sp,a1							; a1 = pointer to our 4 bytes
+			lea	vmp_TempVariable(a5),a1
 			DOMETHOD2 a4, #MUIM_List_GetEntry, d2, a1
-			move.l	(sp)+,a0						; Pop the result directly into a0!
-
+			move.l	vmp_TempVariable(a5),a0
 			tst.l	a0
 			beq.w	.done							; Failsafe (GetEntry returns NULL)
 
@@ -555,9 +551,27 @@ _MainWdwButtonPressedPlaylist
 _MainWdwGotAppMessage	movem.l	a5,-(sp)
 			movea.l	vmp_StructPointer,a5
 
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_MainWindow(a5),a0
+			move.l	#MUIA_AppMessage,d0
+			lea	vmp_TempVariable(a5),a1
+			LVO	GetAttr
+			tst.l	d0
+			beq.s	.done
 
+			movea.l	vmp_TempVariable(a5),a0
+			tst.l	am_NumArgs(a0)
+			beq.s	.done
+			
+			movea.l	am_ArgList(a0),a0
+		;	movea.l	WBArg(a0),a0
+			
 
-			moveq	#0,d0
+			
+			nop
+			
+
+.done			moveq	#0,d0
 			movem.l	(sp)+,a5
 			rts
 
@@ -609,25 +623,21 @@ _DirlistPressedDirlist	movem.l	a0-a1/a5-a6,-(sp)
 
 
 			; Get FileInfoBlock
-			subq.l	#4,sp
-			move.l	sp,a1
+
+			lea	vmp_TempVariable(a5),a1
 			DOMETHOD2	vmp_MUI_DirlistListview(a5), #MUIM_List_GetEntry, #MUIV_List_GetEntry_Active, a1
-			move.l	(sp)+,a0
+			move.l	vmp_TempVariable(a5),a0
 			
 			move.l	fib_DirEntryType(a0),d0
 			blt.s	.isFile
 			bgt.s	.isDirectory
 			bra.s	.done
 
-.isFile
-			movea.l	vmp_IntuitionBase(a5),a6
-			subq.l	#4,sp							; Allocate 4 bytes on stack for GetAttr
+.isFile			movea.l	vmp_IntuitionBase(a5),a6
 			movea.l	vmp_MUI_DirlistListview(a5),a0
 			move.l	#MUIA_List_Active,d0
-			movea.l	sp,a1							; Storage pointer = stack
+			lea	vmp_PlayingIndex(a5),a1
 			LVO	GetAttr
-			move.l	(sp)+,d0						; d0 = current index
-			move.l	d0,vmp_PlayingIndex(a5)
 
 			move.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
 			bsr	_PauseMP3
