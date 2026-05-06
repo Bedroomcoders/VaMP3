@@ -1,0 +1,17 @@
+Known issues:
+ - Playlist not implemented
+ 
+Planned:
+ - Drag&Drop MP3's directly to player or playlist
+ - Song info on main window
+ - Position slider to show song progress and to move forward/back in playing song
+ - Volume slider/knob
+ - Right click menu
+ - Preferences for users settings
+ - Selectable Tapedeck buttons.
+ 
+
+ 
+Changes:
+ - Implemented Workbench startup code
+
