@@ -22,7 +22,10 @@
 			include	"cybergraphics/cybergraphics_lib.i"
 			include	"utility/utility_lib.i"
 			include	"dos/dos.i"
+			include	"dos/dosextens.i"
 			include	"dos/dos_lib.i"
+			include	"workbench/workbench.i"
+			include	"workbench/startup.i"
 
 			include	"vaMP3.i"
 			
@@ -53,6 +56,7 @@
 			APTR	vmp_OldInterrupt
 			APTR	vmp_MainTask
 			LONG	vmp_InterruptMask
+			LONG	vmp_TempVariable
 			APTR	vmp_MUI_Application
 			APTR	vmp_MUI_MainWindow
 			APTR	vmp_MUI_MainWdwGroup
@@ -100,6 +104,45 @@
 
 
 			section code,Code
+
+
+			;-------------------------------------------------------------
+			; Initial startup code for Workbench or Command Line Interface
+			;-------------------------------------------------------------
+
+_Startup		movem.l	d0/a0,-(sp)
+
+			movea.l	$4.w,a6
+			suba.l	a1,a1
+			jsr	_LVOFindTask(a6)
+			movea.l	d0,a4
+
+			tst.l	pr_CLI(a4)			; was I called from CLI?
+			bne.s	.fromCLI			; if so, skip out this bit...
+
+			lea	pr_MsgPort(a4),a0
+			jsr	_LVOWaitPort(a6)
+
+			lea	pr_MsgPort(a4),a0
+			jsr	_LVOGetMsg(a6)
+			move.l	d0,vmp_WorkbenchMessage
+
+.fromCLI		movem.l	(sp)+,d0/a0
+
+			bsr	_Init
+
+			move.l	d0,-(sp)
+
+			tst.l	vmp_WorkbenchMessage		; Is there a message?
+			beq.s	.Return				; if not, skip...
+
+			movea.l	(4).w,a6
+			movea.l	vmp_WorkbenchMessage,a1
+			jsr	_LVOReplyMsg(a6)
+
+.Return			move.l	(sp)+,d0			; exit application
+			rts
+
 
 
 			;------------------------------------------------------------
@@ -308,7 +351,8 @@ _Init			move.l	4.w,a6
 			move.l	#vmp_SIZEOF,d0
 			LVO	FreeMem
 
-.allocError		rts
+.allocError		moveq	#0,d0
+			rts
 
 
 
@@ -436,6 +480,7 @@ vmp_TimerDeviceName	dc.b	"timer.device",0
 			even
 
 vmp_StructPointer	dc.l	0
+vmp_WorkbenchMessage	dc.l	0
 
 
 			; Alert messages
