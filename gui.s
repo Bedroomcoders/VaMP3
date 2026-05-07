@@ -548,31 +548,45 @@ _MainWdwButtonPressedPlaylist
 			; _MainWdwGotAppMessage
 			;------------------------------------------------------------
 
-_MainWdwGotAppMessage	movem.l	a5,-(sp)
+_MainWdwGotAppMessage	movem.l	d1-d3/a0-a2/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
-			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_MainWindow(a5),a0
-			move.l	#MUIA_AppMessage,d0
-			lea	vmp_TempVariable(a5),a1
-			LVO	GetAttr
+			movea.l	(a1),a1						; a1 = AppMessage
+			
+			tst.l	a1
+			beq.s	.done
+
+			tst.l	am_NumArgs(a1)
+			beq.s	.done
+			
+			movea.l	am_ArgList(a1),a2				; a2 = First WBArg
+
+			movea.l	vmp_DosBase(a5),a6
+			move.l	wa_Lock(a2),d1
+			move.l	#vmp_FilenameBuffer,d2
+			move.l	#255,d3
+			LVO	NameFromLock
 			tst.l	d0
 			beq.s	.done
-
-			movea.l	vmp_TempVariable(a5),a0
-			tst.l	am_NumArgs(a0)
+			
+			move.l	#vmp_FilenameBuffer,d1
+			move.l	wa_Name(a2),d2
+			move.l	#255,d3
+			LVO	AddPart
+			tst.l	d0
 			beq.s	.done
 			
-			movea.l	am_ArgList(a0),a0
-		;	movea.l	WBArg(a0),a0
-			
+			bsr	_PauseMP3
 
+			lea	vmp_FilenameBuffer,a0
+			bsr	_NewMP3
+			tst.l	d0
+			beq.s	.done
 			
-			nop
+			bsr	_ResumeMP3
 			
-
 .done			moveq	#0,d0
-			movem.l	(sp)+,a5
+			movem.l	(sp)+,d1-d3/a0-a2/a5-a6
 			rts
 
 
@@ -999,7 +1013,7 @@ vmp_FilePatternToken		ds.b	32
 				; Playlist window
 vmp_PlaylistWindowTitle		dc.b	"Playlist",0
 vmp_PlaylistAddFileTitle	dc.b	"Add file",0
-vmp_PlaylistAddDirTitle		dc.b	"Add dirctory",0
+vmp_PlaylistAddDirTitle		dc.b	"Add directory",0
 
 				; Application
 vmp_ApplicationTitle		dc.b	"VaMP3",0
@@ -1057,8 +1071,9 @@ vmp_Method_MainWdwButtonPlaylist	dc.l	MUIM_Notify,MUIA_Pressed,FALSE
 				dc.l	MUIM_CallHook,vmp_Hook_MainWdwButtonPlaylist
 
 vmp_Method_MainWdwAppMessage	dc.l	MUIM_Notify,MUIA_AppMessage,MUIV_EveryTime
-				dc.l	MUIV_Notify_Self,2
+				dc.l	MUIV_Notify_Self,3
 				dc.l	MUIM_CallHook,vmp_Hook_MainWdwAppMessage
+				dc.l	MUIV_TriggerValue
 
 
 				; Main windows hooks
@@ -1135,7 +1150,7 @@ vmp_Hook_PlaylistButtonAddFile	ds.b	MLN_SIZE
 				dc.l	_PlaylistButtonPressedAddFile
 				dc.l	0,0
 
-
+				even
 vmp_FilenameBuffer		ds.b	256
 
 
