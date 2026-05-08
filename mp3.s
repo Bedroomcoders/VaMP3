@@ -25,7 +25,7 @@ _NewMP3			movem.l	d0-d1/a0-a1/a6,-(sp)
 .mp3Opened		move.l	d0,vmp_MP3_Stream(a5)
 
 			; Stop any playing audio
-			moveq	#VMP_AUDIOCHANNEL,d0
+			moveq	#VMP_AUDIO_CHANNEL,d0
 			bsr	_StopAudio
     
 			; Resulting audio buffer size calculation
@@ -89,7 +89,7 @@ _NewMP3			movem.l	d0-d1/a0-a1/a6,-(sp)
 
 _CloseMP3		movem.l	a6,-(sp)
 			move.l	#0,vmp_Playing(a5)
-			moveq	#VMP_AUDIOCHANNEL,d0
+			moveq	#VMP_AUDIO_CHANNEL,d0
 			bsr	_StopAudio
 			
 			movea.l	vmp_MPEGABase(a5),a6
@@ -113,7 +113,7 @@ _PlayMP3		movem.l	d0-d2/a0-a1,-(sp)
 			lea	vmp_PCM_LengthArray,a1
 			move.l	(a1,d2.w),d0
 
-			moveq	#VMP_AUDIOCHANNEL,d1
+			moveq	#VMP_AUDIO_CHANNEL,d1
 			move.l	#$ffff,d2
 			bsr	_PlayAudio
 			
@@ -133,7 +133,7 @@ _PauseMP3		movem.l	d0,-(sp)
 
 			move.l	#1,vmp_Paused(a5)
 			moveq	#0,d0
-			bset	#VMP_AUDIOCHANNEL,d0
+			bset	#VMP_AUDIO_CHANNEL,d0
 			move.w	d0,DMACON						; Stop audio on channel
 
 .exit			movem.l	(sp)+,d0
@@ -152,7 +152,7 @@ _ResumeMP3		movem.l	d0,-(sp)
 
 			move.l	#0,vmp_Paused(a5)
 			move.l	#$8200,d0
-			bset	#VMP_AUDIOCHANNEL,d0
+			bset	#VMP_AUDIO_CHANNEL,d0
 			move.w	d0,DMACON						; Stop audio on channel
 
 .exit			movem.l	(sp)+,d0
@@ -188,7 +188,7 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 			move.l	#0,vmp_FramesToDecode(a5)
 			move.l	#VMP_STATUS_IDLE,d0
 			bsr	_SetStatus
-			moveq	#VMP_AUDIOCHANNEL,d0
+			moveq	#VMP_AUDIO_CHANNEL,d0
 			bsr	_StopAudio
 			bsr	_MainWdwButtonPressedNext			;Play next song
 			bra.s	.exit
@@ -245,7 +245,7 @@ _QueueBuffer		movem.l	d0-d2/a0-a1,-(sp)
 			lsr.l	#3,d0
 			
 			movea.l	#AUD0L,a1
-			moveq	#VMP_AUDIOCHANNEL,d1
+			moveq	#VMP_AUDIO_CHANNEL,d1
 			lsl.l	#4,d1
 			add.l	d1,a1							; a1 = channel base
 			
@@ -335,6 +335,30 @@ _StopAudio		movem.l	d0-d3/a0-a1,-(sp)
 			dbf	d1,.waitLoop						; System needs to wait a bit before new sound can be set on this channel
 
 			movem.l	(sp)+,d0-d3/a0-a1
+			rts
+
+
+
+			; _SetVolume
+			;--------------------------------------------------------------
+			; INPUT:
+			;	d0 = Channel - Number between 0 and 15
+			;	d1 = Volume - Number between 0 and 100
+			
+_SetVolume		movem.l	d0-d1/a0,-(sp)
+
+			movea.l	#AUD0L,a0						; Base address of channel 0
+			lsl.l	#4,d0							; Muliply channel by 16 to find byte offset
+			add.l	d0,a0							; a0 = base of selected channel
+
+			mulu	#255,d1
+			divu	#100,d1
+			move.b	d1,d0
+			lsl	#8,d0
+			move.b	d1,d0
+			move.w	d0,$8(a0)						; AUDxVOL 	- Volume
+			
+.done			movem.l	(sp)+,d0-d1/a0
 			rts
 
 

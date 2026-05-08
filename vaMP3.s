@@ -47,6 +47,7 @@
 			LONG	vmp_Quit
 			LONG	vmp_Playing
 			LONG	vmp_Paused
+			LONG	vmp_Volume
 			LONG	vmp_PlayingFrom					; Started from Dirlist or Playlist?
 			LONG	vmp_PlayingIndex				; Which song in the list?
 			APTR	vmp_Intui_Window
@@ -62,6 +63,7 @@
 			APTR	vmp_MUI_MainWdwGroup
 			APTR	vmp_MUI_MainWdwButtonPlaylist
 			APTR	vmp_MUI_MainWdwButtonDirlist
+			APTR	vmp_MUI_MainWdwSliderVolume
 			APTR	vmp_MUI_MainWdwButtonStop
 			APTR	vmp_MUI_MainWdwButtonPause
 			APTR	vmp_MUI_MainWdwButtonPlay
@@ -88,6 +90,12 @@
 			APTR	vmp_MUI_PlaylistButtonAddFile
 			APTR	vmp_MUI_PlaylistButtonAddDir
 			APTR	vmp_MUI_PlaylistHGroup1
+			APTR	vmp_MUI_Menustrip
+			APTR	vmp_MUI_MenuFile
+			APTR	vmp_MUI_MenuFileLoadPL
+			APTR	vmp_MUI_MenuFileSavePL
+			APTR	vmp_MUI_MenuSettings
+			APTR	vmp_MUI_MenuSettingsPrefs
 			APTR	vmp_MP3_Stream
 			LONG	vmp_PCM_ActiveBuffer
 			LONG	vmp_PCM_AudioSize
@@ -114,17 +122,22 @@ _Startup		movem.l	d0/a0,-(sp)
 
 			movea.l	$4.w,a6
 			suba.l	a1,a1
-			jsr	_LVOFindTask(a6)
+			LVO	FindTask
 			movea.l	d0,a4
+
+			movea.l	d0,a1
+			moveq	#1,d0
+			LVO	SetTaskPri
+
 
 			tst.l	pr_CLI(a4)			; was I called from CLI?
 			bne.s	.fromCLI			; if so, skip out this bit...
 
 			lea	pr_MsgPort(a4),a0
-			jsr	_LVOWaitPort(a6)
+			LVO	WaitPort
 
 			lea	pr_MsgPort(a4),a0
-			jsr	_LVOGetMsg(a6)
+			LVO	GetMsg
 			move.l	d0,vmp_WorkbenchMessage
 
 .fromCLI		movem.l	(sp)+,d0/a0
@@ -138,7 +151,7 @@ _Startup		movem.l	d0/a0,-(sp)
 
 			movea.l	(4).w,a6
 			movea.l	vmp_WorkbenchMessage,a1
-			jsr	_LVOReplyMsg(a6)
+			LVO	ReplyMsg
 
 .Return			move.l	(sp)+,d0			; exit application
 			rts
@@ -210,6 +223,9 @@ _Init			move.l	4.w,a6
 			bne.s	.skipTimer
 			move.l	#1,vmp_TimerDeviceBase(a5)				; Just set non-zero flag
 .skipTimer
+
+			; Populate variables
+			move.l	#VMP_AUDIO_VOLUME,vmp_Volume(a5)
 
 			; Open Libs
 			OPENLIB	Intuition,0
@@ -310,7 +326,7 @@ _Init			move.l	4.w,a6
 			LVO	SetIntVector
 
 			; Stop playing audio
-			moveq	#VMP_AUDIOCHANNEL,d0
+			moveq	#VMP_AUDIO_CHANNEL,d0
 			bsr	_StopAudio
 
 			movea.l	vmp_UtilityBase(a5),a1

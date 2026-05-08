@@ -153,6 +153,7 @@ CREATEMUICUSTOMBUTTON	MACRO
 			movem.l	(sp)+,a6
 			ENDM
 			
+
 			
 			;------------------------------------------------------------
 			; DoMethod Macros
@@ -227,6 +228,52 @@ DOMETHOD7		MACRO						; \1=Object, \2=MethodID, \3=Arg1 to \9=Arg7
 			lea	32(sp),sp				; Cleanup stack (8 longs)
 			movem.l	(sp)+,a0-a2/a6
 			ENDM
+
+DOMETHOD	MACRO		; \1=Object, \2=MethodID, \3-\9=Args (up to 7 args)
+		movem.l	a0-a2/a6,-(sp)
+DMCOUNT		SET	4
+
+		IFNC	"\9",""
+		move.l	\9,-(sp)
+DMCOUNT		SET	DMCOUNT+4
+		ENDC
+		IFNC	"\8",""
+		move.l	\8,-(sp)
+DMCOUNT		SET	DMCOUNT+4
+		ENDC
+		IFNC	"\7",""
+		move.l	\7,-(sp)
+DMCOUNT		SET	DMCOUNT+4
+		ENDC
+		IFNC	"\6",""
+		move.l	\6,-(sp)
+DMCOUNT		SET	DMCOUNT+4
+		ENDC
+		IFNC	"\5",""
+		move.l	\5,-(sp)
+DMCOUNT		SET	DMCOUNT+4
+		ENDC
+		IFNC	"\4",""
+		move.l	\4,-(sp)
+DMCOUNT		SET	DMCOUNT+4
+		ENDC
+		IFNC	"\3",""
+		move.l	\3,-(sp)
+DMCOUNT		SET	DMCOUNT+4
+		ENDC
+
+		move.l	\2,-(sp)
+
+		move.l	sp,a1
+		movea.l	\1,a2
+		movea.l	-4(a2),a0
+		movea.l	8(a0),a6
+		jsr	(a6)
+
+		lea	DMCOUNT(sp),sp
+		movem.l	(sp)+,a0-a2/a6
+		ENDM
+
 
 	ENDC
 
