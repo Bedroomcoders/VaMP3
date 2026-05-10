@@ -15,6 +15,15 @@ _LVOMPEGA_Close			equ	-36
 mp3_ms_duration			equ	14	; Offset in struct
 mp3_dec_frequency		equ	28
 
+
+	; MUI Custom Button Tags
+	
+CUSTOMBTN_Image     EQU $80010001
+CUSTOMBTN_Width     EQU $80010002
+CUSTOMBTN_Height    EQU $80010003
+
+
+
 	; Application specific constants
 VMP_MAINWINDOWID		equ	1
 VMP_MAINWINDOWWIDTH		equ	300

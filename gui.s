@@ -81,23 +81,24 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_MainWdwButtonDirlist(a5)			; Create Dirlist Button
 			beq.w	.error
 
-			CREATEMUICUSTOMBUTTON	img_Stop_Raw
+			CREATEMUICUSTOMBUTTON	img_Stop_Raw,24,24
 			move.l	d0,vmp_MUI_MainWdwButtonStop(a5)			; Create Stop Button
 			beq	.error
 
-			CREATEMUICUSTOMBUTTON	img_Pause_Raw
+			CREATEMUICUSTOMBUTTON	img_Pause_Raw,24,24
 			move.l	d0,vmp_MUI_MainWdwButtonPause(a5)			; Create Pause Button
 			beq	.error
 
-			CREATEMUICUSTOMBUTTON	img_Play_Raw
+			CREATEMUICUSTOMBUTTON	img_Play_Raw,24,24
 			move.l	d0,vmp_MUI_MainWdwButtonPlay(a5)			; Create Play Button
 			beq	.error
 
-			CREATEMUICUSTOMBUTTON	img_Next_Raw
+
+			CREATEMUICUSTOMBUTTON	img_Next_Raw,24,24
 			move.l	d0,vmp_MUI_MainWdwButtonNext(a5)			; Create Next Button
 			beq	.error
 
-			CREATEMUICUSTOMBUTTON	img_Previous_Raw
+			CREATEMUICUSTOMBUTTON	img_Previous_Raw,24,24
 			move.l	d0,vmp_MUI_MainWdwButtonPrevious(a5)			; Create Previous Button
 			beq	.error
 
@@ -842,179 +843,193 @@ _PlaylistButtonPressedAddFile
 
 
 
-			;------------------------------------------------------------------------------
+			;------------------------------------------------------------
 			; _InitCustomClass
-			;------------------------------------------------------------------------------
+			;------------------------------------------------------------
 
-_InitCustomClass
-			movem.l	d0-d7/a0-a6,-(sp)
-			
-			suba.l	a0,a0							; a0 = NULL (Library base)
+_InitCustomClass	movem.l d0-d7/a0-a6,-(sp)
+
+			suba.l	a0,a0
 			lea	MUIC_Area,a1
-			suba.l	a2,a2							; a2 = NULL (no supermcc)
-			moveq	#4,d0							; d0 = InstSize (4 bytes for image pointer)
-			lea	_CustomButton_Dispatcher,a3				; a3 = dispatcher
+			suba.l	a2,a2
+			moveq	#12,d0						; InstSize = 12 bytes (ptr + w + h)
+			lea	_CustomButton_Dispatcher,a3
 			movea.l	vmp_MUIBase(a5),a6
-			jsr	-108(a6)						; _LVOMUI_CreateCustomClass
+			jsr	-108(a6)
 			move.l	d0,vmp_CustomButtonClass(a5)
 			bne.s	.muiOk
-			SHOWALERT	vmp_MUIAlert
-			bra.w	.cleanup
+			SHOWALERT	vmp_ClassAlert
+			bra.s	.cleanup
 .muiOk
-			lea	vmp_UtilityName,a1
-			moveq	#37,d0
-			movea.l	4.w,a6
-			LVO	OpenLibrary
-			move.l	d0,vmp_UtilityBase(a5)
-			bne.s	.utilOk
-			SHOWALERT	vmp_UtilAlert
-			bra.w	.cleanup
-.utilOk
 			movea.l	vmp_CustomButtonClass(a5),a0
-			movea.l	24(a0),a0						; a0 = IClass* (mcc_Class is at offset 24)
-			move.l	a5,36(a0)						; Save our vmp struct to cl_UserData (offset 36)!
+			movea.l	24(a0),a0
+			move.l	a5,36(a0)
 .cleanup		movem.l	(sp)+,d0-d7/a0-a6
 			rts
 
 
-
-			;------------------------------------------------------------------------------
+			;------------------------------------------------------------
 			; _CustomButton_Dispatcher
-			;------------------------------------------------------------------------------
+			;------------------------------------------------------------
 
 _CustomButton_Dispatcher
-			movem.l	d2-d7/a2-a6,-(sp)					; BOOPSI MUST preserve these!
-			
-			move.l	vmp_StructPointer,a5					; Fetch our Struct back into a5
-			
-			move.l	(a1),d0							; a1 = Msg, so (a1) = MethodID
-			cmp.l	#$80426f3f,d0						; MUIM_Draw
+			movem.l	d2-d7/a2-a6,-(sp)
+            
+			move.l	vmp_StructPointer,a5
+
+			move.l	(a1),d0
+			cmp.l	#$80426f3f,d0					; MUIM_Draw
 			beq.w	.draw
-			cmp.l	#$80423874,d0						; MUIM_AskMinMax
+			cmp.l	#$80423874,d0					; MUIM_AskMinMax
 			beq.w	.askMinMax
-			cmp.l	#$00000101,d0						; OM_NEW (0x00000101)
-			beq.w	.new
-			
-			bsr.w	.super							; Pass unhandled methods to superclass and WAIT for return
-			bra.w	.exit							; Pop our registers to fix stack corruption!
-
-.new			
-
-			movem.l	a0-a2/a6,-(sp)
+			cmp.l	#$00000101,d0					; OM_NEW
+			beq.s	.new
+            
 			bsr.w	.super
-			move.l	d0,d7							; Save object pointer
-			movem.l	(sp)+,a0-a2/a6
-			
-			tst.l	d7
-			bne.s	.superOk
-			bra.w	.exit							; Failed to create
-.superOk
-			move.l	a0,-(sp)						; Save Class pointer
-			movea.l	d7,a2							; a2 = Object (returned from super)
-			movea.l	4(a1),a0						; a0 = Taglist (from Msg in a1)
-			
-.tagLoop		move.l	(a0)+,d0
-			beq.s	.newDone						; TAG_DONE = 0
-			cmp.l	#$80010001,d0
-			beq.s	.foundTag
-			addq.l	#4,a0							; skip ti_Data
-			bra.s	.tagLoop
-			
-.foundTag		move.l	(a0),d0							; Get ti_Data (The image pointer)
-			move.l	(sp),a0							; Restore Class pointer
-			
-			moveq	#0,d1
-			move.w	32(a0),d1						; cl_InstOffset is a UWORD at offset 32!
-			
-			lea	(a2,d1.l),a0						; a0 = Instance data pointer (a2 is Object!)
-			move.l	d0,(a0)							; Store image pointer
+			bra.w	.exit
 
-.newDone		addq.l	#4,sp							; Pop saved Class pointer
-			move.l	d7,d0							; Return object
+.new			movem.l	a0-a2/a6,-(sp)
+			bsr.w	.super
+			move.l	d0,d7
+			movem.l	(sp)+,a0-a2/a6
+
+			tst.l	d7
+			beq.w	.exit
+
+			move.l	a0,-(sp)					; Save Class pointer
+			movea.l	d7,a2						; a2 = Object
+
+			; Get instance data pointer
+			move.l	(sp),a0						; Class pointer
+			moveq	#0,d1
+			move.w	32(a0),d1					; cl_InstOffset
+			lea	(a2,d1.l),a3					; a3 = Instance data
+
+			; Set defaults
+			move.l	#0,(a3)						; image ptr = NULL
+			move.l	#32,4(a3)					; default width = 32
+			move.l	#32,8(a3)					; default height = 32
+
+			; Walk taglist
+			movea.l	4(a1),a0					; a0 = Taglist
+.tagLoop		move.l	(a0)+,d0
+			beq.s	.newDone					; TAG_DONE
+
+			cmp.l	#CUSTOMBTN_Image,d0
+			beq.s	.storeImage
+			cmp.l	#CUSTOMBTN_Width,d0
+			beq.s	.storeWidth
+			cmp.l	#CUSTOMBTN_Height,d0
+			beq.s	.storeHeight
+			addq.l	#4,a0
+			bra.s	.tagLoop
+
+.storeImage		move.l	(a0)+,d0
+			move.l	d0,(a3)						; Save image ptr
+			bra.s	.tagLoop
+.storeWidth		move.l	(a0)+,d0
+			move.l	d0,4(a3)					; Save width
+			bra.s	.tagLoop
+.storeHeight		move.l	(a0)+,d0
+			move.l	d0,8(a3)					; Save height
+			bra.s	.tagLoop
+
+.newDone		addq.l	#4,sp
+			move.l	d7,d0
 			bra.w	.exit
 
 .askMinMax		movem.l	a0-a2/a6,-(sp)
-			move.l	a1,-(sp)						; SAVE A1!
-			bsr.w	.super							; Let Area.mui fill the struct first!
-			move.l	(sp)+,a1						; RESTORE A1!
+			move.l	a1,-(sp)
+			bsr.w	.super
+			move.l	(sp)+,a1
 			movem.l	(sp)+,a0-a2/a6
-			
-			movea.l	4(a1),a0						; a0 = struct MUI_MinMax *
-			
-			; Add 32 to all fields to make room for our image
-			add.w	#32,0(a0)						; MinWidth
-			move.w	0(a0),4(a0)						; MaxWidth = MinWidth
-			move.w	0(a0),8(a0)						; DefWidth = MinWidth
-			
-			add.w	#32,2(a0)						; MinHeight
-			move.w	2(a0),6(a0)						; MaxHeight = MinHeight
-			move.w	2(a0),10(a0)						; DefHeight = MinHeight
-			
-			moveq	#0,d0							; Return 0
+
+			; Fetch instance data
+			movea.l	vmp_CustomButtonClass(a5),a3
+			movea.l	24(a3),a3
+			moveq	#0,d1
+			move.w	32(a3),d1
+			lea	(a2,d1.l),a3					; a3 = instance data
+			move.l	4(a3),d5					; d5 = width
+			move.l	8(a3),d6					; d6 = height
+
+			movea.l	4(a1),a0					; a0 = MUI_MinMax *
+
+			add.w	d5,0(a0)					; MinWidth
+			move.w	0(a0),4(a0)					; MaxWidth
+			move.w	0(a0),8(a0)					; DefWidth
+
+			add.w	d6,2(a0)					; MinHeight
+			move.w	2(a0),6(a0)					; MaxHeight
+			move.w	2(a0),10(a0)					; DefHeight
+
+			moveq	#0,d0
 			bra.w	.exit
 
-.draw			movem.l	a0-a2/a4-a5,-(sp)					; SAVE A4 and A5!
-			bsr.w	.super							; Let superclass draw the button frame FIRST
-			
-			; Get instance data (obj + cl_InstOffset)
-			movea.l	vmp_CustomButtonClass(a5),a3				; a3 = MUI_CustomClass*
-			movea.l	24(a3),a3						; a3 = mcc_Class (IClass*)
+.draw			movem.l	a0-a2/a4-a5,-(sp)
+			bsr.w	.super
+
+			; Fetch instance data
+			movea.l	vmp_CustomButtonClass(a5),a3
+			movea.l	24(a3),a3
 			moveq	#0,d1
-			move.w	32(a3),d1						; cl_InstOffset
-			lea	(a2,d1.l),a3						; a3 = Instance data (a2 is Object!)
-			move.l	(a3),d7							; d7 = Raw Image Pointer
-			beq.w	.drawDone						; No image? Don't draw
-			
+			move.w	32(a3),d1
+			lea	(a2,d1.l),a3					; a3 = instance data
+			move.l	(a3),d7						; d7 = image ptr
+			beq.w	.drawDone
+			move.l	4(a3),d5					; d5 = width
+			move.l	8(a3),d6					; d6 = height
+
 			; Get muiAreaData
-			lea	28(a2),a4						; a4 = muiAreaData
-			
-			; Get _rp(obj) -> muiRenderInfo->mri_RastPort
-			movea.l	0(a4),a1						; a1 = mri_RenderInfo
-			movea.l	20(a1),a1						; a1 = mri_RastPort (Destination RastPort)
-			
-			; Get _mleft(obj) -> mad_Box.Left + mad_addleft
-			move.w	24(a4),d3						; d3 = mad_Box.Left
+			lea	28(a2),a4
+
+			; Get RastPort
+			movea.l	0(a4),a1
+			movea.l	20(a1),a1
+
+			; DestX
+			move.w	24(a4),d3
 			ext.l	d3
-			move.b	32(a4),d0						; d0 = mad_addleft
+			move.b	32(a4),d0
 			ext.w	d0
 			ext.l	d0
-			add.l	d0,d3							; d3 = DestX
-			
-			; Get _mtop(obj) -> mad_Box.Top + mad_addtop
-			move.w	26(a4),d4						; d4 = mad_Box.Top
+			add.l	d0,d3
+
+			; DestY
+			move.w	26(a4),d4
 			ext.l	d4
-			move.b	33(a4),d0						; d0 = mad_addtop
+			move.b	33(a4),d0
 			ext.w	d0
 			ext.l	d0
-			add.l	d0,d4							; d4 = DestY
-			
-			; Setup WritePixelArray arguments
-			movea.l	d7,a0							; Source Image Pointer
-			moveq	#0,d0							; SrcX = 0
-			moveq	#0,d1							; SrcY = 0
-			move.l	#128,d2							; SrcMod = Bytes per row
-			moveq	#32,d5							; Width = 32
-			moveq	#32,d6							; Height = 32
-			moveq	#2,d7							; Format = RECTFMT_ARGB (2)
-  
+			add.l	d0,d4
+
+			; SrcMod = width * 4 (bytes per row for ARGB)
+			move.l	d5,d2
+			lsl.l	#2,d2                 ; d2 = SrcMod
+
+			movea.l	d7,a0                 ; source
+			moveq	#0,d0                 ; SrcX
+			moveq	#0,d1                 ; SrcY
+			; d2 = SrcMod, d3 = DestX, d4 = DestY
+			; d5 = Width, d6 = Height
+			moveq	#2,d7						; RECTFMT_ARGB
+
 			movem.l	a0-a1/d0-d2,-(sp)
 			movea.l	vmp_CyberGfxBase(a5),a6
-			jsr	-126(a6)						; _LVOWritePixelArray
+			jsr	-126(a6)					; WritePixelArray
 			movem.l	(sp)+,a0-a1/d0-d2
-			
+
 .drawDone		movem.l	(sp)+,a0-a2/a4-a5
-			moveq	#0,d0							; Return 0
+			moveq	#0,d0
 			bra.w	.exit
 
-.super			movea.l	vmp_CustomButtonClass(a5),a0				; a0 = MUI_CustomClass*
-			movea.l	20(a0),a0						; a0 = mcc_Super (Area.mui IClass*)
-			movea.l	vmp_UtilityBase(a5),a6					; a6 = utility.library
-			jmp	-102(a6)						; Tail-call _LVOCallHookPkt (-102)!
+.super			movea.l	vmp_CustomButtonClass(a5),a0
+			movea.l	20(a0),a0					; a0 = mcc_Super (IClass*)
+			movea.l	8(a0),a6					; a6 = Dispatcher
+			jmp	(a6)
 
-.exit			movem.l	(sp)+,d2-d7/a2-a6
+.exit			movem.l (sp)+,d2-d7/a2-a6
 			rts
-
-
 
 
 
@@ -1229,16 +1244,34 @@ vmp_StatusDecodingTxt	dc.b	"Decoding mp3.",0
 			; Button images
 			
 			cnop	0,8
-img_Play_Raw		incbin	"images/Childsplay/Play_32x32.raw"
-img_Stop_Raw		incbin	"images/Childsplay/Stop_32x32.raw"
-img_Pause_Raw		incbin	"images/Childsplay/Pause_32x32.raw"
-img_Next_Raw		incbin	"images/Childsplay/Next_32x32.raw"
-img_Previous_Raw	incbin	"images/Childsplay/Previous_32x32.raw"
+;img_Play_Raw		incbin	"images/Childsplay/Play_32x32.raw"
+;img_Stop_Raw		incbin	"images/Childsplay/Stop_32x32.raw"
+;img_Pause_Raw		incbin	"images/Childsplay/Pause_32x32.raw"
+;img_Next_Raw		incbin	"images/Childsplay/Next_32x32.raw"
+;img_Previous_Raw	incbin	"images/Childsplay/Previous_32x32.raw"
 
 ;img_Play_Raw		incbin	"images/HANsolo_Archive/Play_32x32.raw"
 ;img_Stop_Raw		incbin	"images/HANsolo_Archive/Stop_32x32.raw"
 ;img_Pause_Raw		incbin	"images/HANsolo_Archive/Pause_32x32.raw"
 ;img_Next_Raw		incbin	"images/HANsolo_Archive/Next_32x32.raw"
 ;img_Previous_Raw	incbin	"images/HANsolo_Archive/Previous_32x32.raw"
+
+;img_Play_Raw		incbin	"images/HANsolo_GrayNWhite/Play_32x32.raw"
+;img_Stop_Raw		incbin	"images/HANsolo_GrayNWhite/Stop_32x32.raw"
+;img_Pause_Raw		incbin	"images/HANsolo_GrayNWhite/Pause_32x32.raw"
+;img_Next_Raw		incbin	"images/HANsolo_GrayNWhite/Next_32x32.raw"
+;img_Previous_Raw	incbin	"images/HANsolo_GrayNWhite/Previous_32x32.raw"
+
+;img_Play_Raw		incbin	"images/HANsolo_Solo/Play_24x24.raw"
+;img_Stop_Raw		incbin	"images/HANsolo_Solo/Stop_24x24.raw"
+;img_Pause_Raw		incbin	"images/HANsolo_Solo/Pause_24x24.raw"
+;img_Next_Raw		incbin	"images/HANsolo_Solo/Next_24x24.raw"
+;img_Previous_Raw	incbin	"images/HANsolo_Solo/Previous_24x24.raw"
+
+img_Play_Raw		incbin	"images/HANsolo_PlainBlackSmall/Play_24x24.raw"
+img_Stop_Raw		incbin	"images/HANsolo_PlainBlackSmall/Stop_24x24.raw"
+img_Pause_Raw		incbin	"images/HANsolo_PlainBlackSmall/Pause_24x24.raw"
+img_Next_Raw		incbin	"images/HANsolo_PlainBlackSmall/Next_24x24.raw"
+img_Previous_Raw	incbin	"images/HANsolo_PlainBlackSmall/Previous_24x24.raw"
 
 

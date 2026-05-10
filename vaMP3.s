@@ -20,7 +20,6 @@
 			include	"lvo/asl_lib.i"
 			include	"libraries/asl.i"
 			include	"cybergraphics/cybergraphics_lib.i"
-			include	"utility/utility_lib.i"
 			include	"dos/dos.i"
 			include	"dos/dosextens.i"
 			include	"dos/dos_lib.i"
@@ -40,7 +39,6 @@
 			APTR	vmp_GraphicsBase
 			APTR	vmp_CyberGfxBase
 			APTR	vmp_ASLBase
-			APTR	vmp_UtilityBase
 			APTR	vmp_MPEGABase
 			APTR	vmp_DosBase
 			APTR	vmp_CustomButtonClass
@@ -329,10 +327,6 @@ _Init			move.l	4.w,a6
 			moveq	#VMP_AUDIO_CHANNEL,d0
 			bsr	_StopAudio
 
-			movea.l	vmp_UtilityBase(a5),a1
-			movea.l	4.w,a6
-			LVO	CloseLibrary
-
 			movea.l	vmp_MUIBase(a5),a6
 			movea.l	vmp_MUI_Application(a5),a0
 			LVO	MUI_DisposeObject		
@@ -510,8 +504,6 @@ vmp_MPEGAAlert		dc.b	"Could not open mpega.library",0
 vmp_DosAlert		dc.b	"Could not open dos.library",0
 vmp_GUIAlert		dc.b	"Error building GUI",0
 vmp_ClassAlert		dc.b	"Failed to create Custom Class!",0
-vmp_DispAlert		dc.b	"Dispatcher called!",0
-vmp_SuperFailAlert	dc.b	"DoSuperMethodA returned 0!",0
 vmp_WDWAlert		dc.b	"Could not extract WindowBase",0
 vmp_MEMAlert		dc.b	"Could not allocate memory",0
 vmp_AlertTitle		dc.b	"Alert!",0

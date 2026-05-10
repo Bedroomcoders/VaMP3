@@ -132,25 +132,20 @@ CREATEMUITEXT		MACRO
 			
 			
 		
-			; ------------------------------------------------------------------------------
-			; CREATEMUICUSTOMBUTTON
-			;   Creates a 32x32 button using your new custom class!
-			;   \1 : Raw Image Pointer (e.g. img_Play_Raw)
-			; ------------------------------------------------------------------------------
-CREATEMUICUSTOMBUTTON	MACRO
-			movem.l	a6,-(sp)
+CREATEMUICUSTOMBUTTON	MACRO  ; \1=ImagePtr, \2=Width, \3=Height
+			movem.l a6,-(sp)
 			INITSTACKTAG
-			STACKADRTAG	\1,$80010001
-			STACKVALTAG	MUIV_InputMode_RelVerify,MUIA_InputMode
-			STACKVALTAG	MUIV_Frame_Button,MUIA_Frame
-			STACKVALTAG	32,MUIA_FixWidth
-			STACKVALTAG	32,MUIA_FixHeight
-			movea.l	vmp_CustomButtonClass(a5),a0
-			movea.l	24(a0),a0					; a0 = IClass* (mcc_Class is at offset 24)
-			suba.l	a1,a1						; a1 = NULL (No ClassID string)
-			movea.l	vmp_IntuitionBase(a5),a6
-			CALLSTACKTAG	_LVONewObjectA,a2			; _LVONewObjectA
-			movem.l	(sp)+,a6
+			STACKVALTAG \3, CUSTOMBTN_Height
+			STACKVALTAG \2, CUSTOMBTN_Width
+			STACKADRTAG \1, CUSTOMBTN_Image
+			STACKVALTAG MUIV_InputMode_RelVerify, MUIA_InputMode
+			STACKVALTAG MUIV_Frame_Button, MUIA_Frame
+			movea.l vmp_CustomButtonClass(a5),a0
+			movea.l 24(a0),a0
+			suba.l  a1,a1
+			movea.l vmp_IntuitionBase(a5),a6
+			CALLSTACKTAG _LVONewObjectA,a2
+			movem.l (sp)+,a6
 			ENDM
 			
 
