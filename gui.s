@@ -1262,16 +1262,16 @@ vmp_StatusDecodingTxt	dc.b	"Decoding mp3.",0
 ;img_Next_Raw		incbin	"images/HANsolo_GrayNWhite/Next_32x32.raw"
 ;img_Previous_Raw	incbin	"images/HANsolo_GrayNWhite/Previous_32x32.raw"
 
-;img_Play_Raw		incbin	"images/HANsolo_Solo/Play_24x24.raw"
-;img_Stop_Raw		incbin	"images/HANsolo_Solo/Stop_24x24.raw"
-;img_Pause_Raw		incbin	"images/HANsolo_Solo/Pause_24x24.raw"
-;img_Next_Raw		incbin	"images/HANsolo_Solo/Next_24x24.raw"
-;img_Previous_Raw	incbin	"images/HANsolo_Solo/Previous_24x24.raw"
+img_Play_Raw		incbin	"images/HANsolo_Solo/Play_24x24.raw"
+img_Stop_Raw		incbin	"images/HANsolo_Solo/Stop_24x24.raw"
+img_Pause_Raw		incbin	"images/HANsolo_Solo/Pause_24x24.raw"
+img_Next_Raw		incbin	"images/HANsolo_Solo/Next_24x24.raw"
+img_Previous_Raw	incbin	"images/HANsolo_Solo/Previous_24x24.raw"
 
-img_Play_Raw		incbin	"images/HANsolo_PlainBlackSmall/Play_24x24.raw"
-img_Stop_Raw		incbin	"images/HANsolo_PlainBlackSmall/Stop_24x24.raw"
-img_Pause_Raw		incbin	"images/HANsolo_PlainBlackSmall/Pause_24x24.raw"
-img_Next_Raw		incbin	"images/HANsolo_PlainBlackSmall/Next_24x24.raw"
-img_Previous_Raw	incbin	"images/HANsolo_PlainBlackSmall/Previous_24x24.raw"
+;img_Play_Raw		incbin	"images/HANsolo_PlainBlackSmall/Play_24x24.raw"
+;img_Stop_Raw		incbin	"images/HANsolo_PlainBlackSmall/Stop_24x24.raw"
+;img_Pause_Raw		incbin	"images/HANsolo_PlainBlackSmall/Pause_24x24.raw"
+;img_Next_Raw		incbin	"images/HANsolo_PlainBlackSmall/Next_24x24.raw"
+;img_Previous_Raw	incbin	"images/HANsolo_PlainBlackSmall/Previous_24x24.raw"
 
 

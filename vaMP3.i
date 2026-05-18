@@ -7,6 +7,7 @@ INTREQ				equ	$dff09c
 INTREQR				equ	$dff01c
 
 
+
 	; MPEGA
 _LVOMPEGA_Open			equ	-30
 _LVOMPEGA_Decode		equ	-42
@@ -16,11 +17,18 @@ mp3_ms_duration			equ	14	; Offset in struct
 mp3_dec_frequency		equ	28
 
 
+
 	; MUI Custom Button Tags
 	
 CUSTOMBTN_Image     EQU $80010001
 CUSTOMBTN_Width     EQU $80010002
 CUSTOMBTN_Height    EQU $80010003
+
+
+
+	; Datatypes stuff
+PDTA_DestMode		equ	$800010fb							; Not defined in ApolloOS include files
+PMODE_V43		equ	$1
 
 
 

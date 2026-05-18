@@ -25,6 +25,8 @@
 			include	"dos/dos_lib.i"
 			include	"workbench/workbench.i"
 			include	"workbench/startup.i"
+			include	"datatypes/datatypes_lib.i"
+			include	"datatypes/pictureclass.i"
 
 			include	"vaMP3.i"
 			
@@ -41,6 +43,7 @@
 			APTR	vmp_ASLBase
 			APTR	vmp_MPEGABase
 			APTR	vmp_DosBase
+			APTR	vmp_DatatypesBase
 			APTR	vmp_CustomButtonClass
 			LONG	vmp_Quit
 			LONG	vmp_Playing
@@ -218,9 +221,18 @@ _Init			move.l	4.w,a6
 			lea	vmp_TimerDeviceName,a0
 			LVO	OpenDevice
 			tst.l	d0
-			bne.s	.skipTimer
+			bne.w	.cleanup
 			move.l	#1,vmp_TimerDeviceBase(a5)				; Just set non-zero flag
-.skipTimer
+
+			; Start timer
+			lea	vmp_TimerReq(a5),a1
+			move.w	#9,28(a1)						; io_Command = TR_ADDREQUEST
+			move.l	#0,32(a1)						; tv_secs = 0
+			move.l	#20000,36(a1)						; tv_micro = 20000 (20ms)
+			movea.l	4.w,a6
+			LVO	SendIO
+
+
 
 			; Populate variables
 			move.l	#VMP_AUDIO_VOLUME,vmp_Volume(a5)
@@ -255,8 +267,13 @@ _Init			move.l	4.w,a6
 			SHOWALERT	vmp_DosAlert
 			bra.w	.cleanup
 
-			; Create MUI - Application, Window, buttons, etc
-.dosOpened		bsr	_InitCustomClass
+.dosOpened		OPENLIB	Datatypes,43
+			bne.s	.dtOpened
+			SHOWALERT	vmp_DTAlert
+			bra.w	.cleanup
+
+.dtOpened		; Create MUI - Application, Window, buttons, etc
+			bsr	_InitCustomClass
 			bsr	_BuildGui
 			beq.s	.guiBuilt
 			SHOWALERT	vmp_GUIAlert
@@ -301,15 +318,6 @@ _Init			move.l	4.w,a6
 			
 			move.w	#$8400,$dff09a
 
-			tst.l	vmp_TimerDeviceBase(a5)
-			beq.s	.noStartTimer
-			lea	vmp_TimerReq(a5),a1
-			move.w	#9,28(a1)						; io_Command = TR_ADDREQUEST
-			move.l	#0,32(a1)						; tv_secs = 0
-			move.l	#20000,36(a1)						; tv_micro = 20000 (20ms)
-			movea.l	4.w,a6
-			LVO	SendIO
-.noStartTimer
 
 			; EventHandler is the mainloop
 			bsr	_EventHandler
@@ -331,7 +339,8 @@ _Init			move.l	4.w,a6
 			movea.l	vmp_MUI_Application(a5),a0
 			LVO	MUI_DisposeObject		
 
-.cleanup		CLOSELIB	Dos
+.cleanup		CLOSELIB	Datatypes
+			CLOSELIB	Dos
 			CLOSELIB	MPEGA
 			CLOSELIB	ASL
 			CLOSELIB	MUI
@@ -340,7 +349,7 @@ _Init			move.l	4.w,a6
 
 			movea.l	4.w,a6
 			
-			; Safe Timer Cleanup!
+			; Timer Cleanup
 			tst.l	vmp_TimerDeviceBase(a5)
 			beq.s	.noTimer
 			lea	vmp_TimerReq(a5),a1
@@ -349,8 +358,8 @@ _Init			move.l	4.w,a6
 			LVO	WaitIO
 			lea	vmp_TimerReq(a5),a1
 			LVO	CloseDevice
-.noTimer
-			move.l	vmp_TimerSignal(a5),d0
+
+.noTimer		move.l	vmp_TimerSignal(a5),d0
 			LVO	FreeSignal
 
 			move.l	vmp_InterruptSignal(a5),d0
@@ -476,6 +485,69 @@ _InterruptHandler	; Registers are save/restored by the OS in an SetIntVector hoo
 
 
 
+			;------------------------------------------------------------
+			; _LoadDTImage
+			;------------------------------------------------------------
+			;
+			; Input: 
+			;	d0 = filename
+			; Result:
+			;	d0 = 0 or Bitmap
+
+
+_LoadDTImage		movem.l	d5/a0-a3/a6,-(sp)
+			moveq	#1,d5
+			
+			movea.l	vmp_DatatypesBase(a5),a6
+			
+			INITSTACKTAG
+			STACKVALTAG	GID_PICTURE,DTA_GroupID				; Only load objects of picture.class (no sound, no text, etc)
+			STACKVALTAG	FALSE,PDTA_Remap				; Do not remap image yet
+			STACKVALTAG	PMODE_V43,PDTA_DestMode				; Specify high color mode for AmigaOS (ApolloOS handles this automatically)
+			CALLSTACKTAG	_LVONewDTObjectA,a0				; Load image from file
+		;	move.l	d0,dtv_ImageObject(a5)
+			beq	.error
+
+		;	movea.l	dtv_ImageObject(a5),a0
+			suba.l	a1,a1
+			suba.l	a2,a2
+			lea	vmp_ProcLayoutMsg,a3
+			jsr	_LVODoDTMethodA(a6)					; Process layout to generate bitmap
+
+		;	movea.l	dtv_ImageObject(a5),a0
+			INITSTACKTAG
+		;	STACKADRTAG	dtv_DestBitmap(a5),PDTA_DestBitMap
+		;	STACKADRTAG	dtv_BitmapHeader(a5),PDTA_BitMapHeader
+			CALLSTACKTAG	_LVOGetDTAttrsA,a2				; Fetch Bitmap and Bitmap header
+			
+			moveq	#0,d5
+			
+.error			move.l	d5,d0
+			movem.l	(sp)+,d5/a0-a3/a6
+			tst.l	d0
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _FreeDTImage
+			;------------------------------------------------------------
+
+_FreeDTImage		movem.l	d0-d1/a0-a1/a6,-(sp)
+
+			movea.l	vmp_DatatypesBase(a5),a6
+			
+	;		movea.l	dtv_Window(a5),a0
+	;		movea.l	dtv_ImageObject(a5),a1
+			jsr	_LVORemoveDTObject(a6)
+			
+	;		movea.l	dtv_ImageObject(a5),a0
+			jsr	_LVODisposeDTObject(a6)
+
+			movem.l	(sp)+,d0-d1/a0-a1/a6
+			rts
+
+
 			section data,Data
 
 vmp_MUIName		dc.b	"muimaster.library",0
@@ -486,6 +558,7 @@ vmp_GraphicsName	dc.b	'graphics.library',0
 vmp_ASLName		dc.b	"asl.library",0
 vmp_MPEGAName		dc.b	"mpega.library",0
 vmp_DosName		dc.b	"dos.library",0
+vmp_DatatypesName	dc.b	"datatypes.library",0
 vmp_TimerDeviceName	dc.b	"timer.device",0
 			even
 
@@ -502,6 +575,7 @@ vmp_CGXAlert		dc.b	"Could not open cybergraphics.library",0
 vmp_ASLAlert		dc.b	"Could not open asl.library",0
 vmp_MPEGAAlert		dc.b	"Could not open mpega.library",0
 vmp_DosAlert		dc.b	"Could not open dos.library",0
+vmp_DTAlert		dc.b	"Could not open datatypes.library",0
 vmp_GUIAlert		dc.b	"Error building GUI",0
 vmp_ClassAlert		dc.b	"Failed to create Custom Class!",0
 vmp_WDWAlert		dc.b	"Could not extract WindowBase",0
@@ -511,9 +585,16 @@ vmp_AlertOK		dc.b	"OK",0
 vmp_EasyStruct		ds.b	es_SIZEOF						; EasyStruct for Requesters
 
 
+			; Datatypes stuff
+vmp_ProcLayoutMsg	dc.l	DTM_PROCLAYOUT				; Method
+			dc.l	0					; GInfo
+			dc.l	1					; Initial
+
+			even
+
+
 
 			; Include other source files
-
 			include	"gui.s"
 			include	"mp3.s"
 
