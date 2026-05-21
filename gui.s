@@ -81,24 +81,39 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_MainWdwButtonDirlist(a5)			; Create Dirlist Button
 			beq.w	.error
 
-			CREATEMUICUSTOMBUTTON	img_Stop_Raw,24,24
+			move.l	vmp_ImgBuffer_Stop(a5),d0
+			move.l	vmp_ImgWidth_Stop(a5),d1
+			move.l	vmp_ImgHeight_Stop(a5),d2
+			CREATEMUICUSTOMBUTTON_DYN	d0,d1,d2
 			move.l	d0,vmp_MUI_MainWdwButtonStop(a5)			; Create Stop Button
 			beq	.error
 
-			CREATEMUICUSTOMBUTTON	img_Pause_Raw,24,24
+			move.l	vmp_ImgBuffer_Pause(a5),d0
+			move.l	vmp_ImgWidth_Pause(a5),d1
+			move.l	vmp_ImgHeight_Pause(a5),d2
+			CREATEMUICUSTOMBUTTON_DYN	d0,d1,d2
 			move.l	d0,vmp_MUI_MainWdwButtonPause(a5)			; Create Pause Button
 			beq	.error
 
-			CREATEMUICUSTOMBUTTON	img_Play_Raw,24,24
+			move.l	vmp_ImgBuffer_Play(a5),d0
+			move.l	vmp_ImgWidth_Play(a5),d1
+			move.l	vmp_ImgHeight_Play(a5),d2
+			CREATEMUICUSTOMBUTTON_DYN	d0,d1,d2
 			move.l	d0,vmp_MUI_MainWdwButtonPlay(a5)			; Create Play Button
 			beq	.error
 
 
-			CREATEMUICUSTOMBUTTON	img_Next_Raw,24,24
+			move.l	vmp_ImgBuffer_Next(a5),d0
+			move.l	vmp_ImgWidth_Next(a5),d1
+			move.l	vmp_ImgHeight_Next(a5),d2
+			CREATEMUICUSTOMBUTTON_DYN	d0,d1,d2
 			move.l	d0,vmp_MUI_MainWdwButtonNext(a5)			; Create Next Button
 			beq	.error
 
-			CREATEMUICUSTOMBUTTON	img_Previous_Raw,24,24
+			move.l	vmp_ImgBuffer_Prev(a5),d0
+			move.l	vmp_ImgWidth_Prev(a5),d1
+			move.l	vmp_ImgHeight_Prev(a5),d2
+			CREATEMUICUSTOMBUTTON_DYN	d0,d1,d2
 			move.l	d0,vmp_MUI_MainWdwButtonPrevious(a5)			; Create Previous Button
 			beq	.error
 
@@ -1244,34 +1259,3 @@ vmp_StatusDecodingTxt	dc.b	"Decoding mp3.",0
 			; Button images
 			
 			cnop	0,8
-;img_Play_Raw		incbin	"images/Childsplay/Play_32x32.raw"
-;img_Stop_Raw		incbin	"images/Childsplay/Stop_32x32.raw"
-;img_Pause_Raw		incbin	"images/Childsplay/Pause_32x32.raw"
-;img_Next_Raw		incbin	"images/Childsplay/Next_32x32.raw"
-;img_Previous_Raw	incbin	"images/Childsplay/Previous_32x32.raw"
-
-;img_Play_Raw		incbin	"images/HANsolo_Archive/Play_32x32.raw"
-;img_Stop_Raw		incbin	"images/HANsolo_Archive/Stop_32x32.raw"
-;img_Pause_Raw		incbin	"images/HANsolo_Archive/Pause_32x32.raw"
-;img_Next_Raw		incbin	"images/HANsolo_Archive/Next_32x32.raw"
-;img_Previous_Raw	incbin	"images/HANsolo_Archive/Previous_32x32.raw"
-
-;img_Play_Raw		incbin	"images/HANsolo_GrayNWhite/Play_32x32.raw"
-;img_Stop_Raw		incbin	"images/HANsolo_GrayNWhite/Stop_32x32.raw"
-;img_Pause_Raw		incbin	"images/HANsolo_GrayNWhite/Pause_32x32.raw"
-;img_Next_Raw		incbin	"images/HANsolo_GrayNWhite/Next_32x32.raw"
-;img_Previous_Raw	incbin	"images/HANsolo_GrayNWhite/Previous_32x32.raw"
-
-img_Play_Raw		incbin	"images/HANsolo_Solo/Play_24x24.raw"
-img_Stop_Raw		incbin	"images/HANsolo_Solo/Stop_24x24.raw"
-img_Pause_Raw		incbin	"images/HANsolo_Solo/Pause_24x24.raw"
-img_Next_Raw		incbin	"images/HANsolo_Solo/Next_24x24.raw"
-img_Previous_Raw	incbin	"images/HANsolo_Solo/Previous_24x24.raw"
-
-;img_Play_Raw		incbin	"images/HANsolo_PlainBlackSmall/Play_24x24.raw"
-;img_Stop_Raw		incbin	"images/HANsolo_PlainBlackSmall/Stop_24x24.raw"
-;img_Pause_Raw		incbin	"images/HANsolo_PlainBlackSmall/Pause_24x24.raw"
-;img_Next_Raw		incbin	"images/HANsolo_PlainBlackSmall/Next_24x24.raw"
-;img_Previous_Raw	incbin	"images/HANsolo_PlainBlackSmall/Previous_24x24.raw"
-
-

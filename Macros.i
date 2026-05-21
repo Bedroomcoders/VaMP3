@@ -148,6 +148,22 @@ CREATEMUICUSTOMBUTTON	MACRO  ; \1=ImagePtr, \2=Width, \3=Height
 			movem.l (sp)+,a6
 			ENDM
 			
+CREATEMUICUSTOMBUTTON_DYN	MACRO  ; \1=ImagePtrReg, \2=WidthReg, \3=HeightReg
+			movem.l a6,-(sp)
+			INITSTACKTAG
+			STACKREGTAG \3, CUSTOMBTN_Height
+			STACKREGTAG \2, CUSTOMBTN_Width
+			STACKREGTAG \1, CUSTOMBTN_Image
+			STACKVALTAG MUIV_InputMode_RelVerify, MUIA_InputMode
+			STACKVALTAG MUIV_Frame_Button, MUIA_Frame
+			movea.l vmp_CustomButtonClass(a5),a0
+			movea.l 24(a0),a0
+			suba.l  a1,a1
+			movea.l vmp_IntuitionBase(a5),a6
+			CALLSTACKTAG _LVONewObjectA,a2
+			movem.l (sp)+,a6
+			ENDM
+			
 
 			
 			;------------------------------------------------------------

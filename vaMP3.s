@@ -1,5 +1,5 @@
 **	$VER: vaMP3.s v1.0 release (April 2026)
-**	Platform: Apollo Vampire with MUI
+**	Platgorm: Apollo Vampire with MUI
 **	Assemble command:
 **				vasmm68k_mot vaMP3.s -Fhunkexe -no-opt
 **	
@@ -15,6 +15,7 @@
 			include	"hardware/intbits.i"
 			include	"intuition/intuition.i"
 			include	"intuition/intuition_lib.i"
+			include	"graphics/graphics_lib.i"
 			include	"libraries/mui.i"
 			include	"lvo/mui_lib.i"
 			include	"lvo/asl_lib.i"
@@ -108,6 +109,21 @@
 			STRUCT	vmp_TimerPort,34
 			STRUCT	vmp_Padding,2
 			STRUCT	vmp_TimerReq,40
+			APTR	vmp_ImgBuffer_Stop
+			LONG	vmp_ImgWidth_Stop
+			LONG	vmp_ImgHeight_Stop
+			APTR	vmp_ImgBuffer_Pause
+			LONG	vmp_ImgWidth_Pause
+			LONG	vmp_ImgHeight_Pause
+			APTR	vmp_ImgBuffer_Play
+			LONG	vmp_ImgWidth_Play
+			LONG	vmp_ImgHeight_Play
+			APTR	vmp_ImgBuffer_Next
+			LONG	vmp_ImgWidth_Next
+			LONG	vmp_ImgHeight_Next
+			APTR	vmp_ImgBuffer_Prev
+			LONG	vmp_ImgWidth_Prev
+			LONG	vmp_ImgHeight_Prev
 		LABEL	vmp_SIZEOF
 
 
@@ -238,6 +254,9 @@ _Init			move.l	4.w,a6
 			move.l	#VMP_AUDIO_VOLUME,vmp_Volume(a5)
 
 			; Open Libs
+			OPENLIB	Graphics,0
+			beq	.cleanup
+
 			OPENLIB	Intuition,0
 			beq	.cleanup
 
@@ -272,7 +291,38 @@ _Init			move.l	4.w,a6
 			SHOWALERT	vmp_DTAlert
 			bra.w	.cleanup
 
-.dtOpened		; Create MUI - Application, Window, buttons, etc
+.dtOpened		; Load Custom Button Images
+			lea	str_ImgStop,a0
+			bsr	_LoadARGBImage
+			move.l	d0,vmp_ImgBuffer_Stop(a5)
+			move.l	d1,vmp_ImgWidth_Stop(a5)
+			move.l	d2,vmp_ImgHeight_Stop(a5)
+			
+			lea	str_ImgPlay,a0
+			bsr	_LoadARGBImage
+			move.l	d0,vmp_ImgBuffer_Play(a5)
+			move.l	d1,vmp_ImgWidth_Play(a5)
+			move.l	d2,vmp_ImgHeight_Play(a5)
+			
+			lea	str_ImgPause,a0
+			bsr	_LoadARGBImage
+			move.l	d0,vmp_ImgBuffer_Pause(a5)
+			move.l	d1,vmp_ImgWidth_Pause(a5)
+			move.l	d2,vmp_ImgHeight_Pause(a5)
+			
+			lea	str_ImgNext,a0
+			bsr	_LoadARGBImage
+			move.l	d0,vmp_ImgBuffer_Next(a5)
+			move.l	d1,vmp_ImgWidth_Next(a5)
+			move.l	d2,vmp_ImgHeight_Next(a5)
+			
+			lea	str_ImgPrev,a0
+			bsr	_LoadARGBImage
+			move.l	d0,vmp_ImgBuffer_Prev(a5)
+			move.l	d1,vmp_ImgWidth_Prev(a5)
+			move.l	d2,vmp_ImgHeight_Prev(a5)
+
+			; Create MUI - Application, Window, buttons, etc
 			bsr	_InitCustomClass
 			bsr	_BuildGui
 			beq.s	.guiBuilt
@@ -339,13 +389,31 @@ _Init			move.l	4.w,a6
 			movea.l	vmp_MUI_Application(a5),a0
 			LVO	MUI_DisposeObject		
 
-.cleanup		CLOSELIB	Datatypes
+.cleanup		movea.l	4.w,a6
+			
+			movea.l	vmp_ImgBuffer_Stop(a5),a1
+			jsr	_LVOFreeVec(a6)
+			
+			movea.l	vmp_ImgBuffer_Play(a5),a1
+			jsr	_LVOFreeVec(a6)
+			
+			movea.l	vmp_ImgBuffer_Pause(a5),a1
+			jsr	_LVOFreeVec(a6)
+			
+			movea.l	vmp_ImgBuffer_Next(a5),a1
+			jsr	_LVOFreeVec(a6)
+			
+			movea.l	vmp_ImgBuffer_Prev(a5),a1
+			jsr	_LVOFreeVec(a6)
+
+			CLOSELIB	Datatypes
 			CLOSELIB	Dos
 			CLOSELIB	MPEGA
 			CLOSELIB	ASL
 			CLOSELIB	MUI
 			CLOSELIB	CyberGfx
 			CLOSELIB	Intuition
+			CLOSELIB	Graphics
 
 			movea.l	4.w,a6
 			
@@ -486,65 +554,107 @@ _InterruptHandler	; Registers are save/restored by the OS in an SetIntVector hoo
 
 
 			;------------------------------------------------------------
-			; _LoadDTImage
+			; _LoadARGBImage
 			;------------------------------------------------------------
 			;
 			; Input: 
-			;	d0 = filename
+			;	a0 = filename
 			; Result:
-			;	d0 = 0 or Bitmap
+			;	d0 = ARGB buffer (or 0)
+			;	d1 = width
+			;	d2 = height
 
-
-_LoadDTImage		movem.l	d5/a0-a3/a6,-(sp)
-			moveq	#1,d5
+_LoadARGBImage		movem.l	d3-d7/a2-a4/a6,-(sp)
+			link	a4,#-120
+			
+			move.l	a0,d7			; Save filename safely
+			
+			move.l	#0,-4(a4)
+			move.l	#0,-8(a4)
+			move.l	#0,-12(a4)
+			move.l	#0,-16(a4)
 			
 			movea.l	vmp_DatatypesBase(a5),a6
 			
 			INITSTACKTAG
-			STACKVALTAG	GID_PICTURE,DTA_GroupID				; Only load objects of picture.class (no sound, no text, etc)
-			STACKVALTAG	FALSE,PDTA_Remap				; Do not remap image yet
-			STACKVALTAG	PMODE_V43,PDTA_DestMode				; Specify high color mode for AmigaOS (ApolloOS handles this automatically)
-			CALLSTACKTAG	_LVONewDTObjectA,a0				; Load image from file
-		;	move.l	d0,dtv_ImageObject(a5)
-			beq	.error
-
-		;	movea.l	dtv_ImageObject(a5),a0
+			STACKVALTAG	GID_PICTURE,DTA_GroupID
+			STACKVALTAG	FALSE,PDTA_Remap
+			STACKVALTAG	PMODE_V43,PDTA_DestMode
+			move.l	d7,d0			; d0 = filename
+			CALLSTACKTAG	_LVONewDTObjectA,a0	; a0 = attrs
+			move.l	d0,-16(a4)
+			beq.w	.error
+			
+			movea.l	d0,a0
 			suba.l	a1,a1
 			suba.l	a2,a2
 			lea	vmp_ProcLayoutMsg,a3
-			jsr	_LVODoDTMethodA(a6)					; Process layout to generate bitmap
-
-		;	movea.l	dtv_ImageObject(a5),a0
+			jsr	_LVODoDTMethodA(a6)
+			
+			; Get BitMap
+			movea.l	-16(a4),a0
 			INITSTACKTAG
-		;	STACKADRTAG	dtv_DestBitmap(a5),PDTA_DestBitMap
-		;	STACKADRTAG	dtv_BitmapHeader(a5),PDTA_BitMapHeader
-			CALLSTACKTAG	_LVOGetDTAttrsA,a2				; Fetch Bitmap and Bitmap header
+			STACKADRTAG	-20(a4),PDTA_DestBitMap
+			CALLSTACKTAG	_LVOGetDTAttrsA,a2
 			
-			moveq	#0,d5
+			; Get BitMapHeader for Width/Height
+			movea.l	-16(a4),a0
+			INITSTACKTAG
+			STACKADRTAG	-24(a4),PDTA_BitMapHeader
+			CALLSTACKTAG	_LVOGetDTAttrsA,a2
 			
-.error			move.l	d5,d0
-			movem.l	(sp)+,d5/a0-a3/a6
-			tst.l	d0
-			rts
-
-
-
-			;------------------------------------------------------------
-			; _FreeDTImage
-			;------------------------------------------------------------
-
-_FreeDTImage		movem.l	d0-d1/a0-a1/a6,-(sp)
-
-			movea.l	vmp_DatatypesBase(a5),a6
+			movea.l	-24(a4),a0
+			moveq	#0,d0
+			move.w	(a0),d0
+			move.l	d0,-8(a4)
+			moveq	#0,d1
+			move.w	2(a0),d1
+			move.l	d1,-12(a4)
 			
-	;		movea.l	dtv_Window(a5),a0
-	;		movea.l	dtv_ImageObject(a5),a1
-			jsr	_LVORemoveDTObject(a6)
+			; AllocVec
+			move.l	d0,d1
+			move.l	-12(a4),d2
+			mulu.w	d2,d1			; d1 = w * h
+			lsl.l	#2,d1			; d1 = w * h * 4
+			move.l	d1,d0
+			move.l	#MEMF_PUBLIC|MEMF_CLEAR,d1
+			movea.l	4.w,a6
+			jsr	_LVOAllocVec(a6)
+			move.l	d0,-4(a4)
+			beq.s	.dtError
 			
-	;		movea.l	dtv_ImageObject(a5),a0
+			; Init RastPort
+			movea.l	vmp_GraphicsBase(a5),a6
+			lea	-120(a4),a1
+			jsr	_LVOInitRastPort(a6)
+			
+			lea	-120(a4),a1
+			move.l	-20(a4),4(a1)		; rp_BitMap
+			
+			; ReadPixelArray
+			movea.l	vmp_CyberGfxBase(a5),a6
+			movea.l	-4(a4),a0		; dest
+			moveq	#0,d0			; destX
+			moveq	#0,d1			; destY
+			move.l	-8(a4),d2
+			lsl.l	#2,d2			; destMod = w*4
+			lea	-120(a4),a1		; srcRP
+			moveq	#0,d3			; srcX
+			moveq	#0,d4			; srcY
+			move.l	-8(a4),d5		; width
+			move.l	-12(a4),d6		; height
+			moveq	#2,d7			; RECTFMT_ARGB
+			jsr	-120(a6)		; ReadPixelArray
+			
+.dtError		movea.l	vmp_DatatypesBase(a5),a6
+			movea.l	-16(a4),a0
 			jsr	_LVODisposeDTObject(a6)
-
-			movem.l	(sp)+,d0-d1/a0-a1/a6
+			
+.error			move.l	-4(a4),d0
+			move.l	-8(a4),d1
+			move.l	-12(a4),d2
+			unlk	a4
+			movem.l	(sp)+,d3-d7/a2-a4/a6
 			rts
 
 
@@ -564,6 +674,16 @@ vmp_TimerDeviceName	dc.b	"timer.device",0
 
 vmp_StructPointer	dc.l	0
 vmp_WorkbenchMessage	dc.l	0
+
+
+			; Image Paths
+str_ImgStop		dc.b	"images/HANsolo_Solo/Stop.png",0
+str_ImgPlay		dc.b	"images/HANsolo_Solo/Play.png",0
+str_ImgPause		dc.b	"images/HANsolo_Solo/Pause.png",0
+str_ImgNext		dc.b	"images/HANsolo_Solo/Next.png",0
+str_ImgPrev		dc.b	"images/HANsolo_Solo/Previous.png",0
+			even
+
 
 
 			; Alert messages
