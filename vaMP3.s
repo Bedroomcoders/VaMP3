@@ -81,7 +81,7 @@
 			APTR	vmp_MUI_DirlistList
 			APTR	vmp_MUI_DirlistListview
 			APTR	vmp_MUI_DirlistPopDrawer
-			APTR	vmp_MUI_DirlistButtonAddToPL
+			APTR	vmp_MUI_DirlistParentButton
 			APTR	vmp_MUI_DirlistDirString
 			APTR	vmp_MUI_DirlistPopasl
 			APTR	vmp_MUI_DirlistHGroup1
@@ -728,7 +728,6 @@ _BuildImageFilename	movem.l	d0-d1/a0-a3/a6,-(sp)
 			move.l	#255,d3
 			LVO	AddPart
 			
-			
 			movem.l	(sp)+,d0-d1/a0-a3/a6
 			rts
 			
@@ -753,8 +752,7 @@ vmp_WorkbenchMessage	dc.l	0
 
 
 			; Image Paths
-;str_Path		dc.b	"images/HANsolo_Solo",0
-str_Path		dc.b	"images/Childsplay",0
+str_Path		dc.b	"Progdir:images/Childsplay",0
 str_ImgStop		dc.b	"Stop.png",0
 str_ImgPlay		dc.b	"Play.png",0
 str_ImgPause		dc.b	"Pause.png",0

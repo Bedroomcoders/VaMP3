@@ -187,6 +187,7 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			lea	MUIC_Slider,a0
 			INITSTACKTAG
 			STACKVALTAG	VMP_AUDIO_VOLUME,MUIA_Numeric_Default
+			STACKVALTAG	VMP_MAIN_VOLUMEID, MUIA_ObjectID
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_MainWdwSliderVolume(a5)				; Create Volume slider
 			beq	.error
@@ -257,8 +258,8 @@ _BuildDirlistWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			movea.l	vmp_MUIBase(a5),a6
 			moveq	#1,d5
 			
-			CREATEMUIBUTTON	txt_DirlistAddToPL
-			move.l	d0,vmp_MUI_DirlistButtonAddToPL(a5)			; Create Add to Playlist Button
+			CREATEMUIBUTTON	txt_DirlistParent
+			move.l	d0,vmp_MUI_DirlistParentButton(a5)			; Create Parent Button
 			beq.w	.error
 
 			movea.l	vmp_DosBase(a5),a6
@@ -305,7 +306,7 @@ _BuildDirlistWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_DirlistButtonAddToPL(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_DirlistParentButton(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_DirlistHGroup1(a5)				; Create Playlist Horizontal Group 1
@@ -1390,7 +1391,7 @@ txt_MainWdwDirlist		dc.b	"Dirlist",0
 
 				; Dirlist window
 txt_DirlistWindowTitle		dc.b	"Directory listing",0
-txt_DirlistAddToPL		dc.b	"Add to playlist",0
+txt_DirlistParent		dc.b	"Parent",0
 
 vmp_FilePattern			dc.b	"#?.mp3",0
 vmp_FilePatternToken		ds.b	32
