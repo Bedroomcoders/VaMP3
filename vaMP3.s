@@ -15,6 +15,7 @@
 			include	"hardware/intbits.i"
 			include	"intuition/intuition.i"
 			include	"intuition/intuition_lib.i"
+			include	"intuition/classusr.i"
 			include	"graphics/graphics_lib.i"
 			include	"libraries/mui.i"
 			include	"lvo/mui_lib.i"
@@ -92,6 +93,19 @@
 			APTR	vmp_MUI_PlaylistButtonAddFile
 			APTR	vmp_MUI_PlaylistButtonAddDir
 			APTR	vmp_MUI_PlaylistHGroup1
+			APTR	vmp_MUI_PrefsWindow
+			APTR	vmp_MUI_PrefsHGroup1
+			APTR	vmp_MUI_PrefsHGroup2
+			APTR	vmp_MUI_PrefsVGroup
+			APTR	vmp_MUI_PrefsSaveButton
+			APTR	vmp_MUI_PrefsImagePath
+			APTR	vmp_MUI_PrefsImagePathLabel
+			APTR	vmp_MUI_PrefsImagePathPopdrawer
+			APTR	vmp_MUI_PrefsImagePathPopasl
+			APTR	vmp_MUI_PrefsDefaultMP3Label
+			APTR	vmp_MUI_PrefsDefaultMP3Path
+			APTR	vmp_MUI_PrefsDefaultMP3Popdrawer
+			APTR	vmp_MUI_PrefsDefaultMP3Popasl
 			APTR	vmp_MUI_Menustrip
 			APTR	vmp_MUI_MenuFile
 			APTR	vmp_MUI_MenuFileLoadPL
@@ -263,60 +277,75 @@ _Init			move.l	4.w,a6
 			OPENLIB	CyberGfx, 41
 			
 			bne.s	.cgxOpened
-			SHOWALERT	vmp_CGXAlert
+			SHOWALERT	txt_CGXAlert
 			bra	.cleanup
 
 .cgxOpened		OPENLIB	MUI,0
 			bne.s	.muiOpened
-			SHOWALERT	vmp_MUIAlert
+			SHOWALERT	txt_MUIAlert
 			bra	.cleanup
 
 .muiOpened		OPENLIB	ASL,0
 			bne.s	.aslOpened
-			SHOWALERT	vmp_ASLAlert
+			SHOWALERT	txt_ASLAlert
 			bra	.cleanup
 
 .aslOpened		OPENLIB	MPEGA,0
 			bne.s	.mpegaOpened
-			SHOWALERT	vmp_MPEGAAlert
+			SHOWALERT	txt_MPEGAAlert
 			bra.w	.cleanup
 
 .mpegaOpened		OPENLIB	Dos,37
 			bne.s	.dosOpened
-			SHOWALERT	vmp_DosAlert
+			SHOWALERT	txt_DosAlert
 			bra.w	.cleanup
 
 .dosOpened		OPENLIB	Datatypes,43
 			bne.s	.dtOpened
-			SHOWALERT	vmp_DTAlert
+			SHOWALERT	txt_DTAlert
 			bra.w	.cleanup
 
-.dtOpened		; Load Custom Button Images
+.dtOpened		; Init MUI stuff
+			bsr	_InitApplication
+			bne.w	.cleanup
+
+
+			; Load Custom Button Images
 			lea	str_ImgStop,a0
+			bsr	_BuildImageFilename
+			lea	vmp_FilenameBuffer,a0
 			bsr	_LoadARGBImage
 			move.l	d0,vmp_ImgBuffer_Stop(a5)
 			move.l	d1,vmp_ImgWidth_Stop(a5)
 			move.l	d2,vmp_ImgHeight_Stop(a5)
 			
 			lea	str_ImgPlay,a0
+			bsr	_BuildImageFilename
+			lea	vmp_FilenameBuffer,a0
 			bsr	_LoadARGBImage
 			move.l	d0,vmp_ImgBuffer_Play(a5)
 			move.l	d1,vmp_ImgWidth_Play(a5)
 			move.l	d2,vmp_ImgHeight_Play(a5)
 			
 			lea	str_ImgPause,a0
+			bsr	_BuildImageFilename
+			lea	vmp_FilenameBuffer,a0
 			bsr	_LoadARGBImage
 			move.l	d0,vmp_ImgBuffer_Pause(a5)
 			move.l	d1,vmp_ImgWidth_Pause(a5)
 			move.l	d2,vmp_ImgHeight_Pause(a5)
 			
 			lea	str_ImgNext,a0
+			bsr	_BuildImageFilename
+			lea	vmp_FilenameBuffer,a0
 			bsr	_LoadARGBImage
 			move.l	d0,vmp_ImgBuffer_Next(a5)
 			move.l	d1,vmp_ImgWidth_Next(a5)
 			move.l	d2,vmp_ImgHeight_Next(a5)
 			
 			lea	str_ImgPrev,a0
+			bsr	_BuildImageFilename
+			lea	vmp_FilenameBuffer,a0
 			bsr	_LoadARGBImage
 			move.l	d0,vmp_ImgBuffer_Prev(a5)
 			move.l	d1,vmp_ImgWidth_Prev(a5)
@@ -326,7 +355,7 @@ _Init			move.l	4.w,a6
 			bsr	_InitCustomClass
 			bsr	_BuildGui
 			beq.s	.guiBuilt
-			SHOWALERT	vmp_GUIAlert
+			SHOWALERT	txt_GUIAlert
 			bra.w	.cleanup
 
 			; Create Notifications and Hooks
@@ -340,7 +369,7 @@ _Init			move.l	4.w,a6
 			LVO	GetAttr
 			tst.l	d0	
 			bne.s	.wdwExtracted
-			SHOWALERT	vmp_WDWAlert
+			SHOWALERT	txt_WDWAlert
 			bra.s	.cleanup
 .wdwExtracted		movea.l	vmp_Intui_Window(a5),a0
 			move.l	wd_UserPort(a0),vmp_Intui_UserPort(a5)			; Get UserPort the regular way
@@ -358,7 +387,7 @@ _Init			move.l	4.w,a6
 			lea	vmp_InterruptStruct(a5),a1
 			move.b	#NT_INTERRUPT,LN_TYPE(a1)
 			move.b	#10,LN_PRI(a1)
-			move.l	#vmp_ApplicationTitle,LN_NAME(a1)
+			move.l	#txt_ApplicationTitle,LN_NAME(a1)
 			move.l	#_InterruptHandler,IS_CODE(a1)
 			move.l	a5,IS_DATA(a1)
 			move.w	#$0400,INTREQ
@@ -658,6 +687,53 @@ _LoadARGBImage		movem.l	d3-d7/a2-a4/a6,-(sp)
 			rts
 
 
+
+			;------------------------------------------------------------
+			; _BuildImageFilename
+			;------------------------------------------------------------
+			;
+			; Input: 
+			;	a0 = filename
+			; Result:
+			;	vmp_FilenameBuffer = path+filename of image to use
+
+_BuildImageFilename	movem.l	d0-d1/a0-a3/a6,-(sp)
+			move.l	a0,a3
+			
+			; *** Copy ImagePath from Prefs ***
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_PrefsImagePath(a5),a0
+			move.l	#MUIA_String_Contents,d0
+			lea	vmp_MUI_TempFilePointer(a5),a1
+			LVO	GetAttr
+			tst.l	d0
+			beq.s	.noImagePath
+			
+			movea.l	vmp_MUI_TempFilePointer(a5),a2
+			tst.b	(a2)
+			beq.s	.noImagePath
+			move.l	a2,a1
+			bra.s	.pathFound
+			
+.noImagePath		lea	str_Path,a1
+.pathFound		lea	vmp_FilenameBuffer,a2
+.copyLoop		move.b	(a1)+,d0
+			move.b	d0,(a2)+
+			cmp.b	#0,d0
+			bne.s	.copyLoop
+
+			movea.l	vmp_DosBase(a5),a6
+			move.l	#vmp_FilenameBuffer,d1
+			move.l	a3,d2
+			move.l	#255,d3
+			LVO	AddPart
+			
+			
+			movem.l	(sp)+,d0-d1/a0-a3/a6
+			rts
+			
+			
+			
 			section data,Data
 
 vmp_MUIName		dc.b	"muimaster.library",0
@@ -677,11 +753,13 @@ vmp_WorkbenchMessage	dc.l	0
 
 
 			; Image Paths
-str_ImgStop		dc.b	"images/HANsolo_Solo/Stop.png",0
-str_ImgPlay		dc.b	"images/HANsolo_Solo/Play.png",0
-str_ImgPause		dc.b	"images/HANsolo_Solo/Pause.png",0
-str_ImgNext		dc.b	"images/HANsolo_Solo/Next.png",0
-str_ImgPrev		dc.b	"images/HANsolo_Solo/Previous.png",0
+;str_Path		dc.b	"images/HANsolo_Solo",0
+str_Path		dc.b	"images/Childsplay",0
+str_ImgStop		dc.b	"Stop.png",0
+str_ImgPlay		dc.b	"Play.png",0
+str_ImgPause		dc.b	"Pause.png",0
+str_ImgNext		dc.b	"Next.png",0
+str_ImgPrev		dc.b	"Previous.png",0
 			even
 
 
@@ -689,19 +767,19 @@ str_ImgPrev		dc.b	"images/HANsolo_Solo/Previous.png",0
 			; Alert messages
 
 			even			
-vmp_MUIAlert		dc.b	"Could not open muimaster.library",0
-vmp_UtilAlert		dc.b	"Could not open utility.library",0
-vmp_CGXAlert		dc.b	"Could not open cybergraphics.library",0
-vmp_ASLAlert		dc.b	"Could not open asl.library",0
-vmp_MPEGAAlert		dc.b	"Could not open mpega.library",0
-vmp_DosAlert		dc.b	"Could not open dos.library",0
-vmp_DTAlert		dc.b	"Could not open datatypes.library",0
-vmp_GUIAlert		dc.b	"Error building GUI",0
-vmp_ClassAlert		dc.b	"Failed to create Custom Class!",0
-vmp_WDWAlert		dc.b	"Could not extract WindowBase",0
-vmp_MEMAlert		dc.b	"Could not allocate memory",0
-vmp_AlertTitle		dc.b	"Alert!",0
-vmp_AlertOK		dc.b	"OK",0
+txt_MUIAlert		dc.b	"Could not open muimaster.library",0
+txt_UtilAlert		dc.b	"Could not open utility.library",0
+txt_CGXAlert		dc.b	"Could not open cybergraphics.library",0
+txt_ASLAlert		dc.b	"Could not open asl.library",0
+txt_MPEGAAlert		dc.b	"Could not open mpega.library",0
+txt_DosAlert		dc.b	"Could not open dos.library",0
+txt_DTAlert		dc.b	"Could not open datatypes.library",0
+txt_GUIAlert		dc.b	"Error building GUI",0
+txt_ClassAlert		dc.b	"Failed to create Custom Class!",0
+txt_WDWAlert		dc.b	"Could not extract WindowBase",0
+txt_MEMAlert		dc.b	"Could not allocate memory",0
+txt_AlertTitle		dc.b	"Alert!",0
+txt_AlertOK		dc.b	"OK",0
 vmp_EasyStruct		ds.b	es_SIZEOF						; EasyStruct for Requesters
 
 

@@ -87,16 +87,15 @@ SHOWALERT		MACRO
 			lea	vmp_EasyStruct,a1
 			move.l	#es_SIZEOF,es_StructSize(a1)
 			clr.l	es_Flags(a1)
-			move.l	#vmp_AlertTitle,es_Title(a1)
+			move.l	#txt_AlertTitle,es_Title(a1)
 			move.l	#\1,es_TextFormat(a1)
-			move.l	#vmp_AlertOK,es_GadgetFormat(a1)
+			move.l	#txt_AlertOK,es_GadgetFormat(a1)
 			sub.l	a2,a2
 			sub.l	a3,a3
 			jsr	_LVOEasyRequestArgs(a6)
 			movem.l	(sp)+,d0-d1/a0-a3/a6
 			ENDM			
 			
-
 
 
 			; MUI Macros
@@ -129,26 +128,16 @@ CREATEMUITEXT		MACRO
 			STACKVALTAG	MUIV_Frame_Text, MUIA_Frame
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			ENDM
-			
-			
-		
-CREATEMUICUSTOMBUTTON	MACRO  ; \1=ImagePtr, \2=Width, \3=Height
-			movem.l a6,-(sp)
+
+CREATEMUILABEL		MACRO
+			lea	MUIC_Text,a0
 			INITSTACKTAG
-			STACKVALTAG \3, CUSTOMBTN_Height
-			STACKVALTAG \2, CUSTOMBTN_Width
-			STACKADRTAG \1, CUSTOMBTN_Image
-			STACKVALTAG MUIV_InputMode_RelVerify, MUIA_InputMode
-			STACKVALTAG MUIV_Frame_Button, MUIA_Frame
-			movea.l vmp_CustomButtonClass(a5),a0
-			movea.l 24(a0),a0
-			suba.l  a1,a1
-			movea.l vmp_IntuitionBase(a5),a6
-			CALLSTACKTAG _LVONewObjectA,a2
-			movem.l (sp)+,a6
+			STACKADRTAG	\1, MUIA_Text_Contents
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			ENDM
 			
-CREATEMUICUSTOMBUTTON_DYN	MACRO  ; \1=ImagePtrReg, \2=WidthReg, \3=HeightReg
+			
+CREATEMUICUSTOMBUTTON	MACRO  ; \1=ImagePtrReg, \2=WidthReg, \3=HeightReg
 			movem.l a6,-(sp)
 			INITSTACKTAG
 			STACKREGTAG \3, CUSTOMBTN_Height
@@ -166,124 +155,50 @@ CREATEMUICUSTOMBUTTON_DYN	MACRO  ; \1=ImagePtrReg, \2=WidthReg, \3=HeightReg
 			
 
 			
-			;------------------------------------------------------------
-			; DoMethod Macros
-			; Usage: DOMETHODx Object, MethodID, Arg1, Arg2...
-			; Example: 
-			;    DOMETHOD2 vmp_MUI_PlaylistList(a5), #MUIM_List_InsertSingle, a0, #-1
-			; Note: Use # for constants/addresses, or just the register name!
-			;------------------------------------------------------------
-
-DOMETHOD0		MACRO						; \1=Object, \2=MethodID
+DOMETHOD		MACRO		; \1=Object, \2=MethodID, \3-\9=Args (up to 7 args)
 			movem.l	a0-a2/a6,-(sp)
-			move.l	\2,-(sp)				; Push MethodID
-			
-			move.l	sp,a1					; a1 = Msg array
-			movea.l	\1,a2					; a2 = Object
-			movea.l	-4(a2),a0				; a0 = Hook
-			movea.l	8(a0),a6				; a6 = Dispatcher
-			jsr	(a6)					; Call Dispatcher
-			
-			addq.l	#4,sp					; Cleanup stack (1 long)
+DMCOUNT			SET	4
+
+			IFNC	"\9",""
+			move.l	\9,-(sp)
+DMCOUNT			SET	DMCOUNT+4
+			ENDC
+			IFNC	"\8",""
+			move.l	\8,-(sp)
+DMCOUNT			SET	DMCOUNT+4
+			ENDC
+			IFNC	"\7",""
+			move.l	\7,-(sp)
+DMCOUNT			SET	DMCOUNT+4
+			ENDC
+			IFNC	"\6",""
+			move.l	\6,-(sp)
+DMCOUNT			SET	DMCOUNT+4
+			ENDC
+			IFNC	"\5",""
+			move.l	\5,-(sp)
+DMCOUNT			SET	DMCOUNT+4
+			ENDC
+			IFNC	"\4",""
+			move.l	\4,-(sp)
+DMCOUNT			SET	DMCOUNT+4
+			ENDC
+			IFNC	"\3",""
+			move.l	\3,-(sp)
+DMCOUNT			SET	DMCOUNT+4
+			ENDC
+
+			move.l	\2,-(sp)
+
+			move.l	sp,a1
+			movea.l	\1,a2
+			movea.l	-4(a2),a0
+			movea.l	8(a0),a6
+			jsr	(a6)
+
+			lea	DMCOUNT(sp),sp
 			movem.l	(sp)+,a0-a2/a6
 			ENDM
-
-DOMETHOD1		MACRO						; \1=Object, \2=MethodID, \3=Arg1
-			movem.l	a0-a2/a6,-(sp)
-			move.l	\3,-(sp)				; Push Arg1
-			move.l	\2,-(sp)				; Push MethodID
-			
-			move.l	sp,a1					; a1 = Msg array
-			movea.l	\1,a2					; a2 = Object
-			movea.l	-4(a2),a0				; a0 = Hook
-			movea.l	8(a0),a6				; a6 = Dispatcher
-			jsr	(a6)					; Call Dispatcher
-			
-			addq.l	#8,sp					; Cleanup stack (2 longs)
-			movem.l	(sp)+,a0-a2/a6
-			ENDM
-
-DOMETHOD2		MACRO						; \1=Object, \2=MethodID, \3=Arg1, \4=Arg2
-			movem.l	a0-a2/a6,-(sp)
-			move.l	\4,-(sp)				; Push Arg2
-			move.l	\3,-(sp)				; Push Arg1
-			move.l	\2,-(sp)				; Push MethodID
-			
-			move.l	sp,a1					; a1 = Msg array
-			movea.l	\1,a2					; a2 = Object
-			movea.l	-4(a2),a0				; a0 = Hook
-			movea.l	8(a0),a6				; a6 = Dispatcher
-			jsr	(a6)					; Call Dispatcher
-			
-			lea	12(sp),sp				; Cleanup stack (3 longs)
-			movem.l	(sp)+,a0-a2/a6
-			ENDM
-
-DOMETHOD7		MACRO						; \1=Object, \2=MethodID, \3=Arg1 to \9=Arg7
-			movem.l	a0-a2/a6,-(sp)
-			move.l	\9,-(sp)				; Push Arg7
-			move.l	\8,-(sp)				; Push Arg6
-			move.l	\7,-(sp)				; Push Arg5
-			move.l	\6,-(sp)				; Push Arg4
-			move.l	\5,-(sp)				; Push Arg3
-			move.l	\4,-(sp)				; Push Arg2
-			move.l	\3,-(sp)				; Push Arg1
-			move.l	\2,-(sp)				; Push MethodID
-			
-			move.l	sp,a1					; a1 = Msg array
-			movea.l	\1,a2					; a2 = Object
-			movea.l	-4(a2),a0				; a0 = Hook
-			movea.l	8(a0),a6				; a6 = Dispatcher
-			jsr	(a6)					; Call Dispatcher
-			
-			lea	32(sp),sp				; Cleanup stack (8 longs)
-			movem.l	(sp)+,a0-a2/a6
-			ENDM
-
-DOMETHOD	MACRO		; \1=Object, \2=MethodID, \3-\9=Args (up to 7 args)
-		movem.l	a0-a2/a6,-(sp)
-DMCOUNT		SET	4
-
-		IFNC	"\9",""
-		move.l	\9,-(sp)
-DMCOUNT		SET	DMCOUNT+4
-		ENDC
-		IFNC	"\8",""
-		move.l	\8,-(sp)
-DMCOUNT		SET	DMCOUNT+4
-		ENDC
-		IFNC	"\7",""
-		move.l	\7,-(sp)
-DMCOUNT		SET	DMCOUNT+4
-		ENDC
-		IFNC	"\6",""
-		move.l	\6,-(sp)
-DMCOUNT		SET	DMCOUNT+4
-		ENDC
-		IFNC	"\5",""
-		move.l	\5,-(sp)
-DMCOUNT		SET	DMCOUNT+4
-		ENDC
-		IFNC	"\4",""
-		move.l	\4,-(sp)
-DMCOUNT		SET	DMCOUNT+4
-		ENDC
-		IFNC	"\3",""
-		move.l	\3,-(sp)
-DMCOUNT		SET	DMCOUNT+4
-		ENDC
-
-		move.l	\2,-(sp)
-
-		move.l	sp,a1
-		movea.l	\1,a2
-		movea.l	-4(a2),a0
-		movea.l	8(a0),a6
-		jsr	(a6)
-
-		lea	DMCOUNT(sp),sp
-		movem.l	(sp)+,a0-a2/a6
-		ENDM
 
 
 	ENDC
