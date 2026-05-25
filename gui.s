@@ -674,27 +674,21 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 			;------------------------------------------------------------
 			; _PausePlayer
 			;------------------------------------------------------------
-_PausePlayer		movem.l	a0-a1/a6,-(sp)
+_PausePlayer		movem.l	d0/a0-a2/a6,-(sp)
 			bsr	_PauseMP3
-			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_MainWdwButtonPlay(a5),a0
-			INITSTACKTAG
-			STACKREGTAG	vmp_ImgBuffer_Pause(a5), CUSTOMBTN_Image
-			CALLSTACKTAG	_LVOSetAttrsA,a1
-			movem.l	(sp)+,a0-a1/a6
+			moveq	#VMP_STATUS_PAUSED,d0
+			bsr	_SetStatus
+			movem.l	(sp)+,d0/a0-a2/a6
 			rts
 
 			;------------------------------------------------------------
 			; _ResumePlayer
 			;------------------------------------------------------------
-_ResumePlayer		movem.l	a0-a1/a6,-(sp)
+_ResumePlayer		movem.l	d0/a0-a2/a6,-(sp)
 			bsr	_ResumeMP3
-			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_MainWdwButtonPlay(a5),a0
-			INITSTACKTAG
-			STACKREGTAG	vmp_ImgBuffer_Play(a5), CUSTOMBTN_Image
-			CALLSTACKTAG	_LVOSetAttrsA,a1
-			movem.l	(sp)+,a0-a1/a6
+			moveq	#VMP_STATUS_PLAYING,d0
+			bsr	_SetStatus
+			movem.l	(sp)+,d0/a0-a2/a6
 			rts
 
 
@@ -1351,8 +1345,19 @@ _CustomButton_Dispatcher
 			moveq	#1,d5
 			bra.s	.setTagLoop
 
-.setDone		or.l	d5,d0						; Combine superclass return and redraw flag
-			bra.s	.setExit2
+.setDone		tst.l	d5
+			beq.s	.setExit
+
+			; Only request redraw if the main window is fully initialized
+			tst.l	vmp_MUI_MainWindow(a5)
+			beq.s	.setExit
+
+			movem.l	d0-d1/a0-a1/a6,-(sp)
+			movea.l	vmp_MUIBase(a5),a6
+			movea.l	a2,a0
+			moveq	#1,d0						; MADF_DRAWOBJECT
+			jsr	_LVOMUI_Redraw(a6)
+			movem.l	(sp)+,d0-d1/a0-a1/a6
 
 .setExit		moveq	#0,d0
 .setExit2		bra.w	.exit
@@ -1536,18 +1541,12 @@ _SetStatus		movem.l	d0-d2/a0-a1/a6,-(sp)
 			beq.s	.setStatusPlaying
 			
 			; Not playing (Idle, Error, etc.) -> show Play image
-			movea.l	vmp_MUI_MainWdwButtonPlay(a5),a0
-			INITSTACKTAG
-			STACKREGTAG	vmp_ImgBuffer_Play(a5), CUSTOMBTN_Image
-			CALLSTACKTAG	_LVOSetAttrsA,a1
+			DOMETHOD vmp_MUI_MainWdwButtonPlay(a5), #MUIM_Set, #CUSTOMBTN_Image, vmp_ImgBuffer_Play(a5)
 			bra.s	.setStatusDone
 
 .setStatusPlaying
 			; Playing -> show Pause image
-			movea.l	vmp_MUI_MainWdwButtonPlay(a5),a0
-			INITSTACKTAG
-			STACKREGTAG	vmp_ImgBuffer_Pause(a5), CUSTOMBTN_Image
-			CALLSTACKTAG	_LVOSetAttrsA,a1
+			DOMETHOD vmp_MUI_MainWdwButtonPlay(a5), #MUIM_Set, #CUSTOMBTN_Image, vmp_ImgBuffer_Pause(a5)
 
 .setStatusDone
 			movem.l	(sp)+,d0-d2/a0-a1/a6
@@ -1701,9 +1700,10 @@ vmp_FilenameBuffer		ds.b	256
 				; Status messages
 			
 			even
-vmp_StatusTable		dc.l	vmp_StatusIdleTxt,vmp_StatusPlayingTxt,vmp_StatusOpenErrorTxt,vmp_StatusDecodingTxt,0
+vmp_StatusTable		dc.l	vmp_StatusIdleTxt,vmp_StatusPlayingTxt,vmp_StatusOpenErrorTxt,vmp_StatusDecodingTxt,vmp_StatusPausedTxt,0
 vmp_StatusIdleTxt	dc.b	"Idle",0
 vmp_StatusPlayingTxt	dc.b	"Playing",0
 vmp_StatusOpenErrorTxt	dc.b	"Error opening file.",0
 vmp_StatusDecodingTxt	dc.b	"Decoding mp3.",0
+vmp_StatusPausedTxt	dc.b	"Paused",0
 
