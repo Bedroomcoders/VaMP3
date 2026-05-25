@@ -69,11 +69,15 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			bsr	_BuildPlaylistWindow
 			bne.w	.error
 
+			bsr	_BuildAboutWindow
+			bne.w	.error
+
 
 			; *** Attach to applications ***
 			DOMETHOD vmp_MUI_Application(a5), #OM_ADDMEMBER, vmp_MUI_MainWindow(a5)
 			DOMETHOD vmp_MUI_Application(a5), #OM_ADDMEMBER, vmp_MUI_DirlistWindow(a5)
 			DOMETHOD vmp_MUI_Application(a5), #OM_ADDMEMBER, vmp_MUI_PlaylistWindow(a5)
+			DOMETHOD vmp_MUI_Application(a5), #OM_ADDMEMBER, vmp_MUI_AboutWindow(a5)
 
 			; *** Copy default MP3 folder from Prefs to Dirlist ***
 			movea.l	vmp_IntuitionBase(a5),a6
@@ -402,7 +406,7 @@ _BuildPlaylistWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 
 
 			;------------------------------------------------------------
-			; _BuildPrefsindow
+			; _BuildSettingsWindow
 			;------------------------------------------------------------
 			; Result:
 			; 	OK	d0 = 0
@@ -521,6 +525,70 @@ _BuildSettingsWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			movem.l	(sp)+,d2-d3/d5/a0-a2/a6
 			tst.l	d0
 			rts
+
+
+
+			;------------------------------------------------------------
+			; _BuildAboutWindow
+			;------------------------------------------------------------
+			; Result:
+			; 	OK	d0 = 0
+			;	Error 	d0 = 1
+
+_BuildAboutWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
+
+			movea.l	vmp_MUIBase(a5),a6
+			moveq	#1,d5
+
+			CREATEMUILABEL	txt_AboutLabel					; Copyright label
+			move.l	d0,vmp_MUI_AboutLabel(a5)
+			beq.w	.error
+
+
+			move.l	#vmp_Logo,d0
+			move.l	#206,d1
+			move.l	#85,d2
+			CREATEMUICUSTOMBUTTON	d0,d1,d2
+			move.l	d0,vmp_MUI_AboutLogo(a5)				; Logo
+			beq	.error
+
+
+			lea	MUIC_Group,a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_MUI_AboutLabel(a5), MUIA_Group_Child
+			STACKVALTAG	TRUE, MUIA_Group_Horiz
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_AboutHGroup1(a5)				; Create Prefs Horizontal Group 1
+			beq	.error
+
+			lea	MUIC_Group,a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_MUI_AboutLogo(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_AboutHGroup1(a5), MUIA_Group_Child
+			STACKVALTAG	FALSE, MUIA_Group_Horiz
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_AboutVGroup(a5)				; Create MUI Vertical Group
+			beq	.error
+
+			lea	MUIC_Window,a0
+			INITSTACKTAG
+			STACKREGTAG	d0,MUIA_Window_RootObject
+			STACKVALTAG	VMP_ABOUTWINDOWID,MUIA_Window_ID
+			STACKADRTAG	txt_AboutWindowTitle,MUIA_Window_Title
+			STACKVALTAG	VMP_ABOUTWINDOWWIDTH, MUIA_Window_Width
+			STACKVALTAG	VMP_ABOUTWINDOWHEIGHT, MUIA_Window_Height
+			STACKVALTAG	TRUE, MUIA_Window_CloseGadget
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1				; Create MUI Window
+			move.l	d0,vmp_MUI_AboutWindow(a5)
+			beq	.error
+
+			moveq	#0,d5
+
+.error			move.l	d5,d0
+			movem.l	(sp)+,d2-d3/d5/a0-a2/a6
+			tst.l	d0
+			rts
+
 
 
 			;------------------------------------------------------------
@@ -655,19 +723,20 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 
 			; Settings window methods
 			DOMETHOD vmp_MUI_SettingsWindow(a5), #MUIM_Notify, #MUIA_Window_CloseRequest, #TRUE, #MUIV_Notify_Application, #2, #MUIM_CallHook, #vmp_Hook_SettingsButtonClose
+			DOMETHOD vmp_MUI_SettingsSaveButton(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Window, #2, #MUIM_CallHook, #vmp_Hook_SettingsButtonSave
 
-			
+			; About window methods
+			DOMETHOD vmp_MUI_AboutWindow(a5), #MUIM_Notify, #MUIA_Window_CloseRequest, #TRUE, #MUIV_Notify_Application, #2, #MUIM_CallHook, #vmp_Hook_AboutButtonClose
+
 			; Menu methods
 
 			DOMETHOD vmp_MUI_MenuFileQuit(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, #MUIV_Notify_Application, #2, #MUIM_Application_ReturnID, #MUIV_Application_ReturnID_Quit
+			DOMETHOD vmp_MUI_MenuFileAbout(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MenuAbout
 			DOMETHOD vmp_MUI_MenuPrefsSettings(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MenuSettings
 			DOMETHOD vmp_MUI_MenuPrefsMUISettings(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, vmp_MUI_Application(a5), #1, #MUIM_Application_OpenConfigWindow
 
 			movem.l	(sp)+,a0-a2/a6
 			rts
-
-
-
 
 
 
@@ -1198,6 +1267,47 @@ _SettingsButtonSave
 
 
 			;------------------------------------------------------------
+			; _AboutButtonClose
+			;------------------------------------------------------------
+
+_AboutButtonClose
+			movem.l	a0-a1/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			; *** Close About window ***
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_AboutWindow(a5),a0
+			INITSTACKTAG
+			STACKVALTAG	0,MUIA_Window_Open
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			moveq	#0,d0
+			movem.l	(sp)+,a0-a1/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _MenuAbout
+			;------------------------------------------------------------
+
+_MenuAbout		movem.l	a0/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			; *** Open About window ***
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_AboutWindow(a5),a0
+			INITSTACKTAG
+			STACKVALTAG	1,MUIA_Window_Open
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			moveq	#0,d0
+			movem.l	(sp)+,a0/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
 			; _MenuSettings
 			;------------------------------------------------------------
 
@@ -1572,12 +1682,20 @@ txt_PlaylistWindowTitle		dc.b	"Playlist",0
 txt_PlaylistAddFile		dc.b	"Add file",0
 txt_PlaylistAddDir		dc.b	"Add directory",0
 
-				; Prefs windows
+				; Prefs window
 txt_SettingsWindowTitle		dc.b	"Settings",0
 txt_SettingsSave		dc.b	"Save",0
 txt_SettingsDefaultMP3Folder	dc.b	"Default MP3 Folder",0
 txt_SettingsImagePath		dc.b	"Path to Tapedeck buttons",0
 
+				; About window
+txt_AboutWindowTitle		dc.b	"About VaMP3",0
+txt_AboutLabel			dc.b	27,"b"							; bold style
+				dc.b	27,"c","(C) 2026 Bedroomcoders.com",10,10
+				dc.b	27,"n"							; normal style
+				dc.b	27,"c","68080 assembly by Tjomp",10
+				dc.b	27,"c","Graphics by HANSolo",10,10
+				dc.b	27,"c","Sources available on Github",10,0
 				; Menu
 txt_Menu_File			dc.b	"File",0
 txt_Menu_FileLoadPL		dc.b	"Load playlist",0
@@ -1679,7 +1797,7 @@ vmp_Hook_PlaylistButtonAddFile	ds.b	MLN_SIZE
 				dc.l	_PlaylistButtonAddFile
 				dc.l	0,0
 
-				; Prefs window hooks
+				; Settings window hooks
 vmp_Hook_SettingsButtonClose	ds.b	MLN_SIZE
 				dc.l	_SettingsButtonClose
 				dc.l	0,0
@@ -1688,9 +1806,18 @@ vmp_Hook_SettingsButtonSave	ds.b	MLN_SIZE
 				dc.l	_SettingsButtonSave
 				dc.l	0,0
 				
+				; About window hooks
+vmp_Hook_AboutButtonClose	ds.b	MLN_SIZE
+				dc.l	_AboutButtonClose
+				dc.l	0,0
+
 				; Menu hooks
 vmp_Hook_MenuSettings		ds.b	MLN_SIZE
 				dc.l	_MenuSettings
+				dc.l	0,0
+
+vmp_Hook_MenuAbout		ds.b	MLN_SIZE
+				dc.l	_MenuAbout
 				dc.l	0,0
 
 				even

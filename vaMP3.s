@@ -105,6 +105,11 @@
 			APTR	vmp_MUI_SettingsDefaultMP3Path
 			APTR	vmp_MUI_SettingsDefaultMP3Popdrawer
 			APTR	vmp_MUI_SettingsDefaultMP3Popasl
+			APTR	vmp_MUI_AboutWindow
+			APTR	vmp_MUI_AboutHGroup1
+			APTR	vmp_MUI_AboutVGroup
+			APTR	vmp_MUI_AboutLabel
+			APTR	vmp_MUI_AboutLogo
 			APTR	vmp_MUI_Menustrip
 			APTR	vmp_MUI_MenuFile
 			APTR	vmp_MUI_MenuFileLoadPL
@@ -789,8 +794,7 @@ vmp_ProcLayoutMsg	dc.l	DTM_PROCLAYOUT				; Method
 			dc.l	1					; Initial
 
 			even
-
-
+vmp_Logo		incbin	"data/logo.raw"		; 206x85, 32bit
 
 			; Include other source files
 			include	"gui.s"
