@@ -8,12 +8,13 @@ Planned:
  - Drag&Drop to build playlist
  - Song info on main window
  - Position slider to show song progress and to move forward/back in playing song
- - Preferences for users settings
- - Selectable Tapedeck buttons.
  
 
  
 Changes:
+ - Shortcuts
+ - User selectable Tapedeck buttons using datatypes
+ - Implemented Preferences
  - Initial dropdown menu
  - Volume slider
  - Implemented drag&drop to main window

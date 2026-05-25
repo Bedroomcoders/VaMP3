@@ -110,6 +110,8 @@
 			APTR	vmp_MUI_MenuFile
 			APTR	vmp_MUI_MenuFileLoadPL
 			APTR	vmp_MUI_MenuFileSavePL
+			APTR	vmp_MUI_MenuFileAbout
+			APTR	vmp_MUI_MenuFileQuit
 			APTR	vmp_MUI_MenuPreferences
 			APTR	vmp_MUI_MenuPrefsSettings
 			APTR	vmp_MUI_MenuPrefsMUISettings

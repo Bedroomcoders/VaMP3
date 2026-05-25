@@ -130,11 +130,11 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			movea.l	vmp_MUIBase(a5),a6
 			moveq	#1,d5
 			
-			CREATEMUIBUTTON	txt_MainWdwPlaylist
+			CREATEMUIBUTTON	txt_MainWdwPlaylist, 112			; Shortcut "p"
 			move.l	d0,vmp_MUI_MainWdwButtonPlaylist(a5)			; Create Playlist Button
 			beq.w	.error
 
-			CREATEMUIBUTTON	txt_MainWdwDirlist
+			CREATEMUIBUTTON	txt_MainWdwDirlist, 100				; Shortcut "d"
 			move.l	d0,vmp_MUI_MainWdwButtonDirlist(a5)			; Create Dirlist Button
 			beq.w	.error
 
@@ -155,7 +155,7 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	vmp_ImgBuffer_Play(a5),d0
 			move.l	vmp_ImgWidth_Play(a5),d1
 			move.l	vmp_ImgHeight_Play(a5),d2
-			CREATEMUICUSTOMBUTTON	d0,d1,d2
+			CREATEMUICUSTOMBUTTON	d0,d1,d2,32				; Shortcut Spacebar
 			move.l	d0,vmp_MUI_MainWdwButtonPlay(a5)			; Create Play Button
 			beq	.error
 
@@ -547,23 +547,41 @@ _BuildMenu		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			lea	MUIC_Menuitem,a0
 			INITSTACKTAG
 			STACKADRTAG	txt_Menu_FileLoadPL, MUIA_Menuitem_Title
-			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1						; Load playlist
 			move.l	d0,vmp_MUI_MenuFileLoadPL(a5)
 			beq	.error
 
 			lea	MUIC_Menuitem,a0
 			INITSTACKTAG
 			STACKADRTAG	txt_Menu_FileSavePL, MUIA_Menuitem_Title
-			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1						; Save Playlist
 			move.l	d0,vmp_MUI_MenuFileSavePL(a5)
+			beq	.error
+
+			lea	MUIC_Menuitem,a0
+			INITSTACKTAG
+			STACKADRTAG	txt_Menu_FileAbout, MUIA_Menuitem_Title
+			STACKADRTAG	txt_Shortcut_About,MUIA_Menuitem_Shortcut
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1						; About
+			move.l	d0,vmp_MUI_MenuFileAbout(a5)
+			beq	.error
+
+			lea	MUIC_Menuitem,a0
+			INITSTACKTAG
+			STACKADRTAG	txt_Menu_FileQuit, MUIA_Menuitem_Title
+			STACKADRTAG	txt_Shortcut_Quit,MUIA_Menuitem_Shortcut
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1						; Quit
+			move.l	d0,vmp_MUI_MenuFileQuit(a5)
 			beq	.error
 
 			lea	MUIC_Menu,a0
 			INITSTACKTAG
+			STACKREGTAG	vmp_MUI_MenuFileQuit(a5),MUIA_Family_Child
+			STACKREGTAG	vmp_MUI_MenuFileAbout(a5),MUIA_Family_Child
 			STACKREGTAG	vmp_MUI_MenuFileSavePL(a5),MUIA_Family_Child
 			STACKREGTAG	vmp_MUI_MenuFileLoadPL(a5),MUIA_Family_Child
 			STACKADRTAG	txt_Menu_File, MUIA_Menu_Title
-			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1						; File menu
 			move.l	d0,vmp_MUI_MenuFile(a5)
 			beq	.error
 
@@ -572,14 +590,16 @@ _BuildMenu		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			lea	MUIC_Menuitem,a0
 			INITSTACKTAG
 			STACKADRTAG	txt_Menu_PrefsSettings, MUIA_Menuitem_Title
-			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			STACKADRTAG	txt_Shortcut_Settings,MUIA_Menuitem_Shortcut
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1						; Settings
 			move.l	d0,vmp_MUI_MenuPrefsSettings(a5)
 			beq	.error
 
 			lea	MUIC_Menuitem,a0
 			INITSTACKTAG
 			STACKADRTAG	txt_Menu_PrefsMUISettings, MUIA_Menuitem_Title
-			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			STACKADRTAG	txt_Shortcut_MUISettings,MUIA_Menuitem_Shortcut
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1						; MUI Settings
 			move.l	d0,vmp_MUI_MenuPrefsMUISettings(a5)
 			beq	.error
 
@@ -588,7 +608,7 @@ _BuildMenu		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			STACKREGTAG	vmp_MUI_MenuPrefsMUISettings(a5),MUIA_Family_Child
 			STACKREGTAG	vmp_MUI_MenuPrefsSettings(a5),MUIA_Family_Child
 			STACKADRTAG	txt_Menu_Preferences, MUIA_Menu_Title
-			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1						; Preferences menu
 			move.l	d0,vmp_MUI_MenuPreferences(a5)
 			beq	.error
 
@@ -647,6 +667,8 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 
 			
 			; Menu methods
+
+			DOMETHOD vmp_MUI_MenuFileQuit(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, #MUIV_Notify_Application, #2, #MUIM_Application_ReturnID, #MUIV_Application_ReturnID_Quit
 			DOMETHOD vmp_MUI_MenuPrefsSettings(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MenuSettings
 			DOMETHOD vmp_MUI_MenuPrefsMUISettings(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, vmp_MUI_Application(a5), #1, #MUIM_Application_OpenConfigWindow
 
@@ -1469,9 +1491,17 @@ txt_SettingsImagePath		dc.b	"Path to Tapedeck buttons",0
 txt_Menu_File			dc.b	"File",0
 txt_Menu_FileLoadPL		dc.b	"Load playlist",0
 txt_Menu_FileSavePL		dc.b	"Save playlist",0
+txt_Menu_FileAbout		dc.b	"About",0
+txt_Menu_FileQuit		dc.b	"Quit",0
 txt_Menu_Preferences		dc.b	"Preferences",0
 txt_Menu_PrefsSettings		dc.b	"Settings",0
 txt_Menu_PrefsMUISettings	dc.b	"MUI Settings",0
+
+				; Shortcut
+txt_Shortcut_About		dc.b	"?",0
+txt_Shortcut_Quit		dc.b	"Q",0
+txt_Shortcut_Settings		dc.b	"P",0
+txt_Shortcut_MUISettings	dc.b	"M",0
 
 				; Application
 txt_ApplicationTitle		dc.b	"VaMP3",0

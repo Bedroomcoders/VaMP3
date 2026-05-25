@@ -100,15 +100,19 @@ SHOWALERT		MACRO
 
 			; MUI Macros
 
-CREATEMUIBUTTON		MACRO
+CREATEMUIBUTTON		MACRO		; \1 = Text	\2 = shortcut (optional)
 			lea	MUIC_Text,a0
 			INITSTACKTAG
 			STACKADRTAG	\1, MUIA_Text_Contents
 			STACKVALTAG	MUIV_InputMode_RelVerify, MUIA_InputMode
 			STACKVALTAG	MUII_ButtonBack, MUIA_Background
 			STACKVALTAG	MUIV_Frame_Button, MUIA_Frame
+			IFNC	"\2",""
+			STACKVALTAG	\2,MUIA_ControlChar
+			ENDC
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			ENDM
+
 
 CREATEMUIIMAGEBUTTON	MACRO
 			lea	MUIC_Image,a0
@@ -137,9 +141,13 @@ CREATEMUILABEL		MACRO
 			ENDM
 			
 			
-CREATEMUICUSTOMBUTTON	MACRO  ; \1=ImagePtrReg, \2=WidthReg, \3=HeightReg
+CREATEMUICUSTOMBUTTON	MACRO  ; \1=ImagePtrReg, \2=WidthReg, \3=HeightReg, \4=Shortcut (optional)
 			movem.l a6,-(sp)
 			INITSTACKTAG
+			IFNC	"\4",""
+			STACKVALTAG	\4,MUIA_ControlChar
+			ENDC
+
 			STACKREGTAG \3, CUSTOMBTN_Height
 			STACKREGTAG \2, CUSTOMBTN_Width
 			STACKREGTAG \1, CUSTOMBTN_Image
