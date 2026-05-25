@@ -93,25 +93,26 @@
 			APTR	vmp_MUI_PlaylistButtonAddFile
 			APTR	vmp_MUI_PlaylistButtonAddDir
 			APTR	vmp_MUI_PlaylistHGroup1
-			APTR	vmp_MUI_PrefsWindow
-			APTR	vmp_MUI_PrefsHGroup1
-			APTR	vmp_MUI_PrefsHGroup2
-			APTR	vmp_MUI_PrefsVGroup
-			APTR	vmp_MUI_PrefsSaveButton
-			APTR	vmp_MUI_PrefsImagePath
-			APTR	vmp_MUI_PrefsImagePathLabel
-			APTR	vmp_MUI_PrefsImagePathPopdrawer
-			APTR	vmp_MUI_PrefsImagePathPopasl
-			APTR	vmp_MUI_PrefsDefaultMP3Label
-			APTR	vmp_MUI_PrefsDefaultMP3Path
-			APTR	vmp_MUI_PrefsDefaultMP3Popdrawer
-			APTR	vmp_MUI_PrefsDefaultMP3Popasl
+			APTR	vmp_MUI_SettingsWindow
+			APTR	vmp_MUI_SettingsHGroup1
+			APTR	vmp_MUI_SettingsHGroup2
+			APTR	vmp_MUI_SettingsVGroup
+			APTR	vmp_MUI_SettingsSaveButton
+			APTR	vmp_MUI_SettingsImagePath
+			APTR	vmp_MUI_SettingsImagePathLabel
+			APTR	vmp_MUI_SettingsImagePathPopdrawer
+			APTR	vmp_MUI_SettingsImagePathPopasl
+			APTR	vmp_MUI_SettingsDefaultMP3Label
+			APTR	vmp_MUI_SettingsDefaultMP3Path
+			APTR	vmp_MUI_SettingsDefaultMP3Popdrawer
+			APTR	vmp_MUI_SettingsDefaultMP3Popasl
 			APTR	vmp_MUI_Menustrip
 			APTR	vmp_MUI_MenuFile
 			APTR	vmp_MUI_MenuFileLoadPL
 			APTR	vmp_MUI_MenuFileSavePL
-			APTR	vmp_MUI_MenuSettings
-			APTR	vmp_MUI_MenuSettingsPrefs
+			APTR	vmp_MUI_MenuPreferences
+			APTR	vmp_MUI_MenuPrefsSettings
+			APTR	vmp_MUI_MenuPrefsMUISettings
 			APTR	vmp_MP3_Stream
 			LONG	vmp_PCM_ActiveBuffer
 			LONG	vmp_PCM_AudioSize
@@ -702,7 +703,7 @@ _BuildImageFilename	movem.l	d0-d1/a0-a3/a6,-(sp)
 			
 			; *** Copy ImagePath from Prefs ***
 			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_PrefsImagePath(a5),a0
+			movea.l	vmp_MUI_SettingsImagePath(a5),a0
 			move.l	#MUIA_String_Contents,d0
 			lea	vmp_MUI_TempFilePointer(a5),a1
 			LVO	GetAttr

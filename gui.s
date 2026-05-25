@@ -17,21 +17,24 @@ _InitApplication	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			movea.l	vmp_MUIBase(a5),a6
 			moveq	#1,d5
 			
+			; Create menustrip
+			bsr	_BuildMenu
+			bne.w	.error
+
+			; Create settings window
+			bsr	_BuildSettingsWindow
+			bne.w	.error
+
 			; Create Application Object
 			lea	MUIC_Application,a0
 			INITSTACKTAG
 			STACKADRTAG	txt_ApplicationTitle, MUIA_Application_Title
 			STACKADRTAG	txt_AppBase, MUIA_Application_Base
+			STACKREGTAG	vmp_MUI_Menustrip(a5),MUIA_Application_Menustrip
+			STACKREGTAG	vmp_MUI_SettingsWindow(a5),MUIA_Application_Window
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1				; Create MUI Application
 			move.l	d0,vmp_MUI_Application(a5)
 			beq.s	.error
-
-			; Create prefs window
-			bsr	_BuildPrefsWindow
-			bne.w	.error
-
-			; Attach Prefs window to Application
-			DOMETHOD vmp_MUI_Application(a5), #OM_ADDMEMBER, vmp_MUI_PrefsWindow(a5)
 
 			; Load any saved preferences
 			DOMETHOD	vmp_MUI_Application(a5),#MUIM_Application_Load, #MUIV_Application_Load_ENVARC
@@ -66,24 +69,15 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			bsr	_BuildPlaylistWindow
 			bne.w	.error
 
-			bsr	_BuildMenu
-			bne.w	.error
-
 
 			; *** Attach to applications ***
 			DOMETHOD vmp_MUI_Application(a5), #OM_ADDMEMBER, vmp_MUI_MainWindow(a5)
 			DOMETHOD vmp_MUI_Application(a5), #OM_ADDMEMBER, vmp_MUI_DirlistWindow(a5)
 			DOMETHOD vmp_MUI_Application(a5), #OM_ADDMEMBER, vmp_MUI_PlaylistWindow(a5)
 
-			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_MainWindow(a5),a0
-			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_Menustrip(a5),MUIA_Window_Menustrip
-			CALLSTACKTAG	_LVOSetAttrsA,a1
-
 			; *** Copy default MP3 folder from Prefs to Dirlist ***
 			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_PrefsDefaultMP3Path(a5),a0
+			movea.l	vmp_MUI_SettingsDefaultMP3Path(a5),a0
 			move.l	#MUIA_String_Contents,d0
 			lea	vmp_MUI_TempFilePointer(a5),a1
 			LVO	GetAttr
@@ -422,111 +416,111 @@ _BuildPlaylistWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			; 	OK	d0 = 0
 			;	Error 	d0 = 1
 
-_BuildPrefsWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
+_BuildSettingsWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 
 			movea.l	vmp_MUIBase(a5),a6
 			moveq	#1,d5
 
-			; Custom buttons prefs
-			CREATEMUILABEL	txt_ButtonPath
-			move.l	d0,vmp_MUI_PrefsImagePathLabel(a5)
+			; Custom buttons settings
+			CREATEMUILABEL	txt_SettingsImagePath
+			move.l	d0,vmp_MUI_SettingsImagePathLabel(a5)
 			beq.w	.error
 			
 			lea	MUIC_String,a0
 			INITSTACKTAG
 			STACKVALTAG	MUIV_Frame_String, MUIA_Frame
-			STACKVALTAG	VMP_PREFS_IMAGEPATHID, MUIA_ObjectID
+			STACKVALTAG	VMP_SETTINGS_IMAGEPATHID, MUIA_ObjectID
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_PrefsImagePath(a5)
+			move.l	d0,vmp_MUI_SettingsImagePath(a5)
 			beq.w	.error
 			
 			CREATEMUIIMAGEBUTTON MUII_PopDrawer
-			move.l	d0,vmp_MUI_PrefsImagePathPopdrawer(a5)
+			move.l	d0,vmp_MUI_SettingsImagePathPopdrawer(a5)
 			beq.w	.error
 
 			lea	MUIC_Popasl,a0
 			INITSTACKTAG
 			STACKVALTAG	ASL_FileRequest, MUIA_Popasl_Type
 			STACKVALTAG	TRUE, ASLFR_DrawersOnly
-			STACKREGTAG	vmp_MUI_PrefsImagePath(a5), MUIA_Popstring_String
-			STACKREGTAG	vmp_MUI_PrefsImagePathPopdrawer(a5), MUIA_Popstring_Button
+			STACKREGTAG	vmp_MUI_SettingsImagePath(a5), MUIA_Popstring_String
+			STACKREGTAG	vmp_MUI_SettingsImagePathPopdrawer(a5), MUIA_Popstring_Button
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_PrefsImagePathPopasl(a5)
+			move.l	d0,vmp_MUI_SettingsImagePathPopasl(a5)
 			beq	.error
 
 
 			; Default MP3 folder prefs
-			CREATEMUILABEL	txt_DefaultMP3Folder
-			move.l	d0,vmp_MUI_PrefsDefaultMP3Label(a5)
+			CREATEMUILABEL	txt_SettingsDefaultMP3Folder
+			move.l	d0,vmp_MUI_SettingsDefaultMP3Label(a5)
 			beq.w	.error
 			
 			lea	MUIC_String,a0
 			INITSTACKTAG
 			STACKVALTAG	MUIV_Frame_String, MUIA_Frame
-			STACKVALTAG	VMP_PREFS_DEFAULTMP3FOLDERID, MUIA_ObjectID
+			STACKVALTAG	VMP_SETTINGS_DEFAULTMP3FOLDERID, MUIA_ObjectID
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_PrefsDefaultMP3Path(a5)
+			move.l	d0,vmp_MUI_SettingsDefaultMP3Path(a5)
 			beq.w	.error
 
 			CREATEMUIIMAGEBUTTON MUII_PopDrawer
-			move.l	d0,vmp_MUI_PrefsDefaultMP3Popdrawer(a5)
+			move.l	d0,vmp_MUI_SettingsDefaultMP3Popdrawer(a5)
 			beq.w	.error
 
 			lea	MUIC_Popasl,a0
 			INITSTACKTAG
 			STACKVALTAG	ASL_FileRequest, MUIA_Popasl_Type
 			STACKVALTAG	TRUE, ASLFR_DrawersOnly
-			STACKREGTAG	vmp_MUI_PrefsDefaultMP3Path(a5), MUIA_Popstring_String
-			STACKREGTAG	vmp_MUI_PrefsDefaultMP3Popdrawer(a5), MUIA_Popstring_Button
+			STACKREGTAG	vmp_MUI_SettingsDefaultMP3Path(a5), MUIA_Popstring_String
+			STACKREGTAG	vmp_MUI_SettingsDefaultMP3Popdrawer(a5), MUIA_Popstring_Button
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_PrefsDefaultMP3Popasl(a5)
+			move.l	d0,vmp_MUI_SettingsDefaultMP3Popasl(a5)
 			beq	.error
 
 
 			; Save button
-			CREATEMUIBUTTON	txt_PrefsSave
-			move.l	d0,vmp_MUI_PrefsSaveButton(a5)				; Create Save Button
+			CREATEMUIBUTTON	txt_SettingsSave
+			move.l	d0,vmp_MUI_SettingsSaveButton(a5)			; Create Save Button
 			beq.w	.error
 
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_PrefsImagePathPopasl(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_PrefsImagePathLabel(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_SettingsImagePathPopasl(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_SettingsImagePathLabel(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_PrefsHGroup1(a5)				; Create Prefs Horizontal Group 1
+			move.l	d0,vmp_MUI_SettingsHGroup1(a5)				; Create Prefs Horizontal Group 1
 			beq	.error
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_PrefsDefaultMP3Popasl(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_PrefsDefaultMP3Label(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_SettingsDefaultMP3Popasl(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_SettingsDefaultMP3Label(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_PrefsHGroup2(a5)				; Create Prefs Horizontal Group 2
+			move.l	d0,vmp_MUI_SettingsHGroup2(a5)				; Create Prefs Horizontal Group 2
 			beq	.error
 
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_PrefsSaveButton(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_PrefsHGroup1(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_PrefsHGroup2(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_SettingsSaveButton(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_SettingsHGroup1(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_SettingsHGroup2(a5), MUIA_Group_Child
 			STACKVALTAG	FALSE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_PrefsVGroup(a5)				; Create MUI Vertical Group
+			move.l	d0,vmp_MUI_SettingsVGroup(a5)				; Create MUI Vertical Group
 			beq	.error
 
 			lea	MUIC_Window,a0
 			INITSTACKTAG
 			STACKREGTAG	d0,MUIA_Window_RootObject
-			STACKVALTAG	VMP_PREFSWINDOWID,MUIA_Window_ID
-			STACKADRTAG	txt_PrefsWindowTitle,MUIA_Window_Title
-			STACKVALTAG	VMP_PREFSWINDOWWIDTH, MUIA_Window_Width
-			STACKVALTAG	VMP_PREFSWINDOWHEIGHT, MUIA_Window_Height
+			STACKVALTAG	VMP_SETTINGSWINDOWID,MUIA_Window_ID
+			STACKADRTAG	txt_SettingsWindowTitle,MUIA_Window_Title
+			STACKVALTAG	VMP_SETTINGSWINDOWWIDTH, MUIA_Window_Width
+			STACKVALTAG	VMP_SETTINGSWINDOWHEIGHT, MUIA_Window_Height
 			STACKVALTAG	TRUE, MUIA_Window_CloseGadget
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1				; Create MUI Window
-			move.l	d0,vmp_MUI_PrefsWindow(a5)
+			move.l	d0,vmp_MUI_SettingsWindow(a5)
 			beq	.error
 
 			moveq	#0,d5
@@ -577,22 +571,30 @@ _BuildMenu		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			
 			lea	MUIC_Menuitem,a0
 			INITSTACKTAG
-			STACKADRTAG	txt_Menu_SettingsPrefs, MUIA_Menuitem_Title
+			STACKADRTAG	txt_Menu_PrefsSettings, MUIA_Menuitem_Title
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_MenuSettingsPrefs(a5)
+			move.l	d0,vmp_MUI_MenuPrefsSettings(a5)
+			beq	.error
+
+			lea	MUIC_Menuitem,a0
+			INITSTACKTAG
+			STACKADRTAG	txt_Menu_PrefsMUISettings, MUIA_Menuitem_Title
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_MenuPrefsMUISettings(a5)
 			beq	.error
 
 			lea	MUIC_Menu,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_MenuSettingsPrefs(a5),MUIA_Family_Child
-			STACKADRTAG	txt_Menu_Settings, MUIA_Menu_Title
+			STACKREGTAG	vmp_MUI_MenuPrefsMUISettings(a5),MUIA_Family_Child
+			STACKREGTAG	vmp_MUI_MenuPrefsSettings(a5),MUIA_Family_Child
+			STACKADRTAG	txt_Menu_Preferences, MUIA_Menu_Title
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_MenuSettings(a5)
+			move.l	d0,vmp_MUI_MenuPreferences(a5)
 			beq	.error
 
 			lea	MUIC_Menustrip,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_MenuSettings(a5),MUIA_Family_Child
+			STACKREGTAG	vmp_MUI_MenuPreferences(a5),MUIA_Family_Child
 			STACKREGTAG	vmp_MUI_MenuFile(a5),MUIA_Family_Child
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_Menustrip(a5)
@@ -631,20 +633,22 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 			DOMETHOD vmp_MUI_DirlistWindow(a5), #MUIM_Notify, #MUIA_Window_CloseRequest, #TRUE, #MUIV_Notify_Application, #2, #MUIM_CallHook, #vmp_Hook_DirlistButtonClose
 			DOMETHOD vmp_MUI_DirlistListview(a5), #MUIM_Notify, #MUIA_Listview_DoubleClick, #TRUE, #MUIV_Notify_Window, #2, #MUIM_CallHook, #vmp_Hook_DirlistListview
 			DOMETHOD vmp_MUI_DirlistList(a5), #MUIM_Notify, #MUIA_Dirlist_Directory, #MUIV_EveryTime, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_DirlistDirChanged
+			DOMETHOD vmp_MUI_DirlistDirString(a5), #MUIM_Notify, #MUIA_String_Acknowledge, #MUIV_EveryTime, vmp_MUI_DirlistListview(a5), #3, #MUIM_Set, #MUIA_Dirlist_Directory, #MUIV_TriggerValue
 
-			DOMETHOD	vmp_MUI_DirlistDirString(a5), #MUIM_Notify, #MUIA_String_Acknowledge, #MUIV_EveryTime, vmp_MUI_DirlistListview(a5), #3, #MUIM_Set, #MUIA_Dirlist_Directory, #MUIV_TriggerValue
+ 			DOMETHOD vmp_MUI_DirlistParentButton(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_DirlistParent
+
 
 			; Playlist window methods
 			DOMETHOD vmp_MUI_PlaylistWindow(a5),#MUIM_Notify, #MUIA_Window_CloseRequest, #TRUE, #MUIV_Notify_Application, #2, #MUIM_CallHook, #vmp_Hook_PlaylistButtonClose
 			DOMETHOD vmp_MUI_PlaylistButtonAddFile(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Window, #2, #MUIM_CallHook, #vmp_Hook_PlaylistButtonAddFile
 
-			; Prefs window methods
-			DOMETHOD vmp_MUI_PrefsWindow(a5), #MUIM_Notify, #MUIA_Window_CloseRequest, #TRUE, #MUIV_Notify_Application, #2, #MUIM_CallHook, #vmp_Hook_PrefsButtonClose
- 			DOMETHOD vmp_MUI_PrefsSaveButton(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_PrefsButtonSave
+			; Settings window methods
+			DOMETHOD vmp_MUI_SettingsWindow(a5), #MUIM_Notify, #MUIA_Window_CloseRequest, #TRUE, #MUIV_Notify_Application, #2, #MUIM_CallHook, #vmp_Hook_SettingsButtonClose
+
 			
 			; Menu methods
-			DOMETHOD vmp_MUI_MenuSettingsPrefs(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MenuPrefs
-			
+			DOMETHOD vmp_MUI_MenuPrefsSettings(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MenuSettings
+			DOMETHOD vmp_MUI_MenuPrefsMUISettings(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, vmp_MUI_Application(a5), #1, #MUIM_Application_OpenConfigWindow
 
 			movem.l	(sp)+,a0-a2/a6
 			rts
@@ -1009,10 +1013,65 @@ _DirlistDirChanged	movem.l	a5,-(sp)
 
 
 			;------------------------------------------------------------
+			; _DirlistParent
+			;------------------------------------------------------------
+
+_DirlistParent		movem.l	d0-d2/a0-a2/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			; Get the string pointer from the string gadget
+			movea.l	vmp_IntuitionBase(a5),a6
+			move.l	#MUIA_String_Contents,d0
+			movea.l	vmp_MUI_DirlistDirString(a5),a0
+			lea	vmp_MUI_TempFilePointer(a5),a1
+			LVO	GetAttr
+			tst.l	d0
+			beq.s	.done
+
+			; Copy the string into vmp_FilenameBuffer
+			movea.l	vmp_MUI_TempFilePointer(a5),a0
+			lea	vmp_FilenameBuffer,a1
+.copyLoop		move.b	(a0)+,(a1)+
+			bne.s	.copyLoop
+
+			; Find parent in vmp_FilenameBuffer
+			movea.l	vmp_DosBase(a5),a6
+			lea	vmp_FilenameBuffer,a0
+			move.l	a0,d1
+			LVO	PathPart
+			tst.l	d0
+			beq.s	.done
+			
+			; Null-terminate at the separator
+			movea.l	d0,a0
+			move.b	#0,(a0)
+
+			; Update the string gadget with the new truncated parent path
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_DirlistDirString(a5),a0
+			INITSTACKTAG
+			STACKADRTAG	vmp_FilenameBuffer,MUIA_String_Contents
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			; Update the Dirlist itself to refresh the file listing
+			movea.l	vmp_MUI_DirlistListview(a5),a0
+			INITSTACKTAG
+			STACKADRTAG	vmp_FilenameBuffer,MUIA_Dirlist_Directory
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			move.l	#-1,vmp_PlayingIndex(a5)
+
+.done			moveq	#0,d0
+			movem.l	(sp)+,d0-d2/a0-a2/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
 			; _PlaylistButtonPressedClose
 			;------------------------------------------------------------
 
-_PlaylistButtonPressedClose
+_PlaylistButtonClose
 			movem.l	a0-a1/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
@@ -1023,7 +1082,7 @@ _PlaylistButtonPressedClose
 			STACKVALTAG	0,MUIA_Window_Open
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
-.done			moveq	#0,d0
+			moveq	#0,d0
 			movem.l	(sp)+,a0-a1/a5-a6
 			rts
 
@@ -1033,7 +1092,7 @@ _PlaylistButtonPressedClose
 			; _PlaylistButtonPressedAddFile
 			;------------------------------------------------------------
 
-_PlaylistButtonPressedAddFile
+_PlaylistButtonAddFile
 			movem.l	a0/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
@@ -1054,59 +1113,58 @@ _PlaylistButtonPressedAddFile
 
 
 			;------------------------------------------------------------
-			; _PrefsButtonPressedClose
+			; _SettingsButtonClose
 			;------------------------------------------------------------
 
-_PrefsButtonPressedClose
+_SettingsButtonClose
 			movem.l	a0-a1/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
-			; *** Close Prefs window ***
+			; *** Close Settings window ***
 			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_PrefsWindow(a5),a0
+			movea.l	vmp_MUI_SettingsWindow(a5),a0
 			INITSTACKTAG
 			STACKVALTAG	0,MUIA_Window_Open
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
-.done			moveq	#0,d0
+			moveq	#0,d0
 			movem.l	(sp)+,a0-a1/a5-a6
 			rts
 
 
 
 			;------------------------------------------------------------
-			; _PrefsButtonPressedSave
+			; _SettingsButtonSave
 			;------------------------------------------------------------
 
-_PrefsButtonPressedSave
+_SettingsButtonSave
 			movem.l	a0-a1/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
 			DOMETHOD	vmp_MUI_Application(a5),#MUIM_Application_Save, #MUIV_Application_Save_ENVARC
-			bsr	_PrefsButtonPressedClose
+			bsr	_SettingsButtonClose
 			
-.done			moveq	#0,d0
+			moveq	#0,d0
 			movem.l	(sp)+,a0-a1/a5-a6
 			rts
 
 
 
 			;------------------------------------------------------------
-			; _MenuPrefsFunc
+			; _MenuSettings
 			;------------------------------------------------------------
 
-_MenuPrefsFunc
-			movem.l	a0/a5-a6,-(sp)
+_MenuSettings		movem.l	a0/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
-			; *** Open Prefs window ***
+			; *** Open Settings window ***
 			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_PrefsWindow(a5),a0
+			movea.l	vmp_MUI_SettingsWindow(a5),a0
 			INITSTACKTAG
 			STACKVALTAG	1,MUIA_Window_Open
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
-.done			moveq	#0,d0
+			moveq	#0,d0
 			movem.l	(sp)+,a0/a5-a6
 			rts
 
@@ -1402,17 +1460,18 @@ txt_PlaylistAddFile		dc.b	"Add file",0
 txt_PlaylistAddDir		dc.b	"Add directory",0
 
 				; Prefs windows
-txt_PrefsWindowTitle		dc.b	"Preferences",0
-txt_PrefsSave			dc.b	"Save",0
-txt_DefaultMP3Folder		dc.b	"Default MP3 Folder",0
-txt_ButtonPath			dc.b	"Path to Tapedeck buttons",0
+txt_SettingsWindowTitle		dc.b	"Settings",0
+txt_SettingsSave		dc.b	"Save",0
+txt_SettingsDefaultMP3Folder	dc.b	"Default MP3 Folder",0
+txt_SettingsImagePath		dc.b	"Path to Tapedeck buttons",0
 
 				; Menu
 txt_Menu_File			dc.b	"File",0
 txt_Menu_FileLoadPL		dc.b	"Load playlist",0
 txt_Menu_FileSavePL		dc.b	"Save playlist",0
-txt_Menu_Settings		dc.b	"Settings",0
-txt_Menu_SettingsPrefs		dc.b	"Preferences",0
+txt_Menu_Preferences		dc.b	"Preferences",0
+txt_Menu_PrefsSettings		dc.b	"Settings",0
+txt_Menu_PrefsMUISettings	dc.b	"MUI Settings",0
 
 				; Application
 txt_ApplicationTitle		dc.b	"VaMP3",0
@@ -1433,6 +1492,7 @@ MUIC_Slider			dc.b	"Slider.mui",0
 MUIC_Menu			dc.b	"Menu.mui",0
 MUIC_Menuitem			dc.b	"Menuitem.mui",0
 MUIC_Menustrip			dc.b	"Menustrip.mui",0
+MUIC_Aboutmui			dc.b	"Aboutmui.mui",0
 
 vmp_CustomButton_Name		dc.b	"VaMP3CustomButton.mui",0
 				even
@@ -1489,30 +1549,33 @@ vmp_Hook_DirlistDirChanged	ds.b	MLN_SIZE
 				dc.l	_DirlistDirChanged
 				dc.l	0,0
 
+vmp_Hook_DirlistParent		ds.b	MLN_SIZE
+				dc.l	_DirlistParent
+				dc.l	0,0
+
 				; Playlist window hooks
 vmp_Hook_PlaylistButtonClose	ds.b	MLN_SIZE
-				dc.l	_PlaylistButtonPressedClose
+				dc.l	_PlaylistButtonClose
 				dc.l	0,0
 				
 vmp_Hook_PlaylistButtonAddFile	ds.b	MLN_SIZE
-				dc.l	_PlaylistButtonPressedAddFile
+				dc.l	_PlaylistButtonAddFile
 				dc.l	0,0
 
 				; Prefs window hooks
-vmp_Hook_PrefsButtonClose	ds.b	MLN_SIZE
-				dc.l	_PrefsButtonPressedClose
+vmp_Hook_SettingsButtonClose	ds.b	MLN_SIZE
+				dc.l	_SettingsButtonClose
 				dc.l	0,0
 
-vmp_Hook_PrefsButtonSave	ds.b	MLN_SIZE
-				dc.l	_PrefsButtonPressedSave
+vmp_Hook_SettingsButtonSave	ds.b	MLN_SIZE
+				dc.l	_SettingsButtonSave
 				dc.l	0,0
 				
 				; Menu hooks
-vmp_Hook_MenuPrefs		ds.b	MLN_SIZE
-				dc.l	_MenuPrefsFunc
+vmp_Hook_MenuSettings		ds.b	MLN_SIZE
+				dc.l	_MenuSettings
 				dc.l	0,0
-				
-				
+
 				even
 vmp_FilenameBuffer		ds.b	256
 
@@ -1526,8 +1589,3 @@ vmp_StatusPlayingTxt	dc.b	"Playing",0
 vmp_StatusOpenErrorTxt	dc.b	"Error opening file.",0
 vmp_StatusDecodingTxt	dc.b	"Decoding mp3.",0
 
-
-
-			; Button images
-			
-			cnop	0,8
