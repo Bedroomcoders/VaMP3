@@ -1,17 +1,16 @@
 Known issues:
  - Playlist have GUI but it is not implemented
- - Forgot to call _CloseMP3
- - Running vaMP3 multiple times causes audio trouble
  
   
 Planned:
  - Drag&Drop to build playlist
  - Song info on main window
  - Position slider to show song progress and to move forward/back in playing song
- 
+ - AREXX interface?
 
  
 Changes:
+ - Check for existing instance and allow only program to run once
  - Shortcuts
  - User selectable Tapedeck buttons using datatypes
  - Implemented Preferences

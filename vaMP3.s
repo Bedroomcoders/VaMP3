@@ -201,7 +201,23 @@ _Startup		movem.l	d0/a0,-(sp)
 			;------------------------------------------------------------
 
 _Init			move.l	4.w,a6
-			move.l	#vmp_SIZEOF,d0
+
+
+			; Check if the MUI application port "VAMP3" is already running
+			LVO	Forbid
+			
+			lea	vmp_UniquePortName,a1
+			LVO	FindPort
+			move.l	d0,d7
+			
+			LVO	Permit
+			
+			tst.l	d7
+			beq.s	.notRunning
+			moveq	#20,d0							; return FAIL if already running
+			rts
+
+.notRunning		move.l	#vmp_SIZEOF,d0
 			move.l	#MEMF_PUBLIC|MEMF_CLEAR,d1
 			LVO	AllocMem
 			tst.l	d0
@@ -417,9 +433,8 @@ _Init			move.l	4.w,a6
 			lea	vmp_OldInterrupt(a5),a1
 			LVO	SetIntVector
 
-			; Stop playing audio
-			moveq	#VMP_AUDIO_CHANNEL,d0
-			bsr	_StopAudio
+			; Stop playing audio and close any active stream
+			bsr	_CloseMP3
 
 			movea.l	vmp_MUIBase(a5),a6
 			movea.l	vmp_MUI_Application(a5),a0
@@ -752,6 +767,7 @@ vmp_MPEGAName		dc.b	"mpega.library",0
 vmp_DosName		dc.b	"dos.library",0
 vmp_DatatypesName	dc.b	"datatypes.library",0
 vmp_TimerDeviceName	dc.b	"timer.device",0
+vmp_UniquePortName	dc.b	"VAMP3.1",0
 			even
 
 vmp_StructPointer	dc.l	0
@@ -799,7 +815,6 @@ vmp_Logo		incbin	"data/logo.raw"		; 206x85, 32bit
 			; Include other source files
 			include	"gui.s"
 			include	"mp3.s"
-
 
 
 

@@ -13,6 +13,7 @@
 			;	d0 = FALSE if failed
 
 _NewMP3			movem.l	d0-d1/a0-a1/a6,-(sp)
+			bsr	_CloseMP3
 			movea.l	vmp_MPEGABase(a5),a6
 			lea     MP3_Ctrl,a1
 			LVO	MPEGA_Open
@@ -87,15 +88,20 @@ _NewMP3			movem.l	d0-d1/a0-a1/a6,-(sp)
 			;------------------------------------------------------------
 			;
 
-_CloseMP3		movem.l	a6,-(sp)
+_CloseMP3		movem.l	a0/a6,-(sp)
 			move.l	#0,vmp_Playing(a5)
 			moveq	#VMP_AUDIO_CHANNEL,d0
 			bsr	_StopAudio
 			
-			movea.l	vmp_MPEGABase(a5),a6
 			movea.l	vmp_MP3_Stream(a5),a0
+			cmpa.l	#0,a0
+			beq.s	.done
+			
+			movea.l	vmp_MPEGABase(a5),a6
 			LVO	MPEGA_Close
-			movem.l	(sp)+,a6
+			move.l	#0,vmp_MP3_Stream(a5)
+			
+.done			movem.l	(sp)+,a0/a6
 			rts
 
 
