@@ -145,13 +145,6 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_MainWdwButtonStop(a5)			; Create Stop Button
 			beq	.error
 
-			move.l	vmp_ImgBuffer_Pause(a5),d0
-			move.l	vmp_ImgWidth_Pause(a5),d1
-			move.l	vmp_ImgHeight_Pause(a5),d2
-			CREATEMUICUSTOMBUTTON	d0,d1,d2
-			move.l	d0,vmp_MUI_MainWdwButtonPause(a5)			; Create Pause Button
-			beq	.error
-
 			move.l	vmp_ImgBuffer_Play(a5),d0
 			move.l	vmp_ImgWidth_Play(a5),d1
 			move.l	vmp_ImgHeight_Play(a5),d2
@@ -200,7 +193,6 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			INITSTACKTAG
 			STACKREGTAG	vmp_MUI_MainWdwButtonNext(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_MainWdwButtonStop(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_MainWdwButtonPause(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_MainWdwButtonPlay(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_MainWdwButtonPrevious(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
@@ -642,7 +634,6 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 			DOMETHOD vmp_MUI_MainWindow(a5), #MUIM_Notify, #MUIA_AppMessage, #MUIV_EveryTime, #MUIV_Notify_Self, #3, #MUIM_CallHook, #vmp_Hook_MainWdwAppMessage, #MUIV_TriggerValue
 		 	DOMETHOD vmp_MUI_MainWdwButtonDirlist(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MainWdwButtonDirlist
  			DOMETHOD vmp_MUI_MainWdwButtonPlaylist(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MainWdwButtonPlaylist
- 			DOMETHOD vmp_MUI_MainWdwButtonPause(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MainWdwButtonPause
  			DOMETHOD vmp_MUI_MainWdwButtonPlay(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MainWdwButtonPlay
  			DOMETHOD vmp_MUI_MainWdwButtonNext(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MainWdwButtonNext
  			DOMETHOD vmp_MUI_MainWdwButtonPrevious(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MainWdwButtonPrevious
@@ -679,21 +670,70 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 
 
 
+
 			;------------------------------------------------------------
-			; _MainWdwButtonPressedDirlist
+			; _PausePlayer
+			;------------------------------------------------------------
+_PausePlayer		movem.l	a0-a1/a6,-(sp)
+			bsr	_PauseMP3
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_MainWdwButtonPlay(a5),a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_ImgBuffer_Pause(a5), CUSTOMBTN_Image
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+			movem.l	(sp)+,a0-a1/a6
+			rts
+
+			;------------------------------------------------------------
+			; _ResumePlayer
+			;------------------------------------------------------------
+_ResumePlayer		movem.l	a0-a1/a6,-(sp)
+			bsr	_ResumeMP3
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_MainWdwButtonPlay(a5),a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_ImgBuffer_Play(a5), CUSTOMBTN_Image
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+			movem.l	(sp)+,a0-a1/a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _MainWdwButtonPlay
 			;------------------------------------------------------------
 
-_MainWdwButtonPressedDirlist
+_MainWdwButtonPlay
 			movem.l	a0-a1/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
-			; *** Open Dirlist window ***
-			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_DirlistWindow(a5),a0
-			INITSTACKTAG
-			STACKVALTAG	1,MUIA_Window_Open
-			CALLSTACKTAG	_LVOSetAttrsA,a1
+			tst.l	vmp_Playing(a5)
+			bne.s	.togglePause
 
+			; Player is idle! Start playing the selected item
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_DirlistListview(a5),a0
+			move.l	#MUIA_List_Active,d0
+			lea	vmp_PlayingIndex(a5),a1
+			LVO	GetAttr
+			cmp.l	#MUIV_List_Active_Off,vmp_PlayingIndex(a5)
+			beq.s	.done
+
+			; Play it!
+			bsr.w	_DirlistClicked
+			bra.s	.done
+
+.togglePause
+			tst.l	vmp_Paused(a5)
+			bne.s	.doResume
+
+			; Currently playing! Pause it.
+			bsr	_PausePlayer
+			bra.s	.done
+
+.doResume
+			; Currently paused! Resume it.
+			bsr	_ResumePlayer
 
 .done			moveq	#0,d0
 			movem.l	(sp)+,a0-a1/a5-a6
@@ -702,42 +742,10 @@ _MainWdwButtonPressedDirlist
 
 
 			;------------------------------------------------------------
-			; _MainWdwButtonPressedPlay
+			; _MainWdwButtonNext
 			;------------------------------------------------------------
 
-_MainWdwButtonPressedPlay
-			movem.l	a5,-(sp)
-			movea.l	vmp_StructPointer,a5
-
-			bsr	_ResumeMP3
-
-			moveq	#0,d0
-			movem.l	(sp)+,a5
-			rts
-
-
-
-			;------------------------------------------------------------
-			; _MainWdwButtonPressedPause
-			;------------------------------------------------------------
-
-_MainWdwButtonPressedPause
-			movem.l	a5,-(sp)
-			movea.l	vmp_StructPointer,a5
-
-			bsr	_PauseMP3
-
-			moveq	#0,d0
-			movem.l	(sp)+,a5
-			rts
-
-
-
-			;------------------------------------------------------------
-			; _MainWdwButtonPressedNext
-			;------------------------------------------------------------
-
-_MainWdwButtonPressedNext
+_MainWdwButtonNext
 			movem.l	d2-d3/a3-a6,-(sp)
 			movea.l	vmp_StructPointer,a5					; Reload our Struct in a5
 
@@ -748,7 +756,7 @@ _MainWdwButtonPressedNext
 			bra.w	.done
 
 .dirlist		movea.l	vmp_MUI_DirlistListview(a5),a4
-			lea	_DirlistPressedDirlist,a3
+			lea	_DirlistClicked,a3
 			bra.s	.findNext
 
 .playlist		movea.l	vmp_MUI_PlaylistList(a5),a4
@@ -789,10 +797,10 @@ _MainWdwButtonPressedNext
 
 
 			;------------------------------------------------------------
-			; _MainWdwButtonPressedPrevious
+			; _MainWdwButtonPrevious
 			;------------------------------------------------------------
 
-_MainWdwButtonPressedPrevious
+_MainWdwButtonPrevious
 			movem.l	d2-d3/a3-a6,-(sp)
 			movea.l	vmp_StructPointer,a5					; Reload our Struct in a5
 
@@ -803,7 +811,7 @@ _MainWdwButtonPressedPrevious
 			bra.w	.done
 
 .dirlist		movea.l	vmp_MUI_DirlistListview(a5),a4
-			lea	_DirlistPressedDirlist,a3
+			lea	_DirlistClicked,a3
 			bra.s	.findPrev
 
 .playlist		movea.l	vmp_MUI_PlaylistList(a5),a4
@@ -845,10 +853,32 @@ _MainWdwButtonPressedPrevious
 
 
 			;------------------------------------------------------------
-			; _MainWdwButtonPressedPlaylist
+			; _MainWdwButtonPressedDirlist
 			;------------------------------------------------------------
 
-_MainWdwButtonPressedPlaylist
+_MainWdwButtonDirlist
+			movem.l	a0-a1/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			; *** Open Dirlist window ***
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_DirlistWindow(a5),a0
+			INITSTACKTAG
+			STACKVALTAG	1,MUIA_Window_Open
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+
+.done			moveq	#0,d0
+			movem.l	(sp)+,a0-a1/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _MainWdwButtonPlaylist
+			;------------------------------------------------------------
+
+_MainWdwButtonPlaylist
 			movem.l	a0-a1/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
@@ -916,14 +946,14 @@ _MainWdwGotAppMessage	movem.l	d1-d3/a0-a2/a5-a6,-(sp)
 			tst.l	d0
 			beq.s	.done
 			
-			bsr	_PauseMP3
+			bsr	_PausePlayer
 
 			lea	vmp_FilenameBuffer,a0
 			bsr	_NewMP3
 			tst.l	d0
 			beq.s	.done
 			
-			bsr	_ResumeMP3
+			bsr	_ResumePlayer
 			
 .done			moveq	#0,d0
 			movem.l	(sp)+,d1-d3/a0-a2/a5-a6
@@ -932,10 +962,10 @@ _MainWdwGotAppMessage	movem.l	d1-d3/a0-a2/a5-a6,-(sp)
 
 
 			;------------------------------------------------------------
-			; _DirlistButtonPressedClose
+			; _DirlistButtonClose
 			;------------------------------------------------------------
 
-_DirlistButtonPressedClose
+_DirlistButtonClose
 			movem.l	a0-a1/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
@@ -953,10 +983,10 @@ _DirlistButtonPressedClose
 
 
 			;------------------------------------------------------------
-			; _DirlistPressedDirlist
+			; _DirlistClicked
 			;------------------------------------------------------------
 
-_DirlistPressedDirlist	movem.l	a0-a1/a5-a6,-(sp)
+_DirlistClicked		movem.l	a0-a1/a5-a6,-(sp)
 
 			; Get item path
 			movea.l	vmp_StructPointer,a5
@@ -994,10 +1024,10 @@ _DirlistPressedDirlist	movem.l	a0-a1/a5-a6,-(sp)
 			LVO	GetAttr
 
 			move.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
-			bsr	_PauseMP3
+			bsr	_PausePlayer
 			movea.l		vmp_MUI_TempFilePointer(a5),a0
 			bsr	_NewMP3
-			bsr	_ResumeMP3
+			bsr	_ResumePlayer
 			bra.s	.done
 
 .isDirectory		movea.l	vmp_IntuitionBase(a5),a6
@@ -1118,15 +1148,16 @@ _PlaylistButtonAddFile
 			movem.l	a0/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
-			bsr	_PauseMP3
+			bsr	_PausePlayer
 			lea	vmp_FilenameBuffer,a0
 			bsr	_AskFile
-			bsr	_ResumeMP3
+			bsr	_ResumePlayer
 			tst.l	d0
 			beq.s	.done
 						
 			lea	vmp_FilenameBuffer,a0
 			bsr	_NewMP3
+			bsr	_ResumePlayer
 
 .done			moveq	#0,d0
 			movem.l	(sp)+,a0/a5-a6
@@ -1233,6 +1264,8 @@ _CustomButton_Dispatcher
 			beq.w	.askMinMax
 			cmp.l	#$00000101,d0					; OM_NEW
 			beq.s	.new
+			cmp.l	#$00000103,d0					; OM_SET
+			beq.s	.set
             
 			bsr.w	.super
 			bra.w	.exit
@@ -1286,6 +1319,43 @@ _CustomButton_Dispatcher
 .newDone		addq.l	#4,sp
 			move.l	d7,d0
 			bra.w	.exit
+
+.set			movem.l	a0-a2/a6,-(sp)
+			move.l	a1,-(sp)
+			bsr.w	.super
+			move.l	(sp)+,a1
+			movem.l	(sp)+,a0-a2/a6
+
+			; Fetch instance data
+			movea.l	vmp_CustomButtonClass(a5),a3
+			movea.l	24(a3),a3					; a3 = IClass *
+			moveq	#0,d1
+			move.w	32(a3),d1					; cl_InstOffset
+			lea	(a2,d1.l),a3					; a3 = Instance data
+
+			move.l	4(a1),d0					; ops_AttrList
+			beq.s	.setExit
+			
+			movea.l	d0,a0						; a0 = Taglist
+			moveq	#0,d5						; d5 = redraw flag
+.setTagLoop		move.l	(a0)+,d0
+			beq.s	.setDone
+			
+			cmp.l	#CUSTOMBTN_Image,d0
+			beq.s	.setImage
+			addq.l	#4,a0
+			bra.s	.setTagLoop
+
+.setImage		move.l	(a0)+,d0
+			move.l	d0,(a3)						; Update image ptr
+			moveq	#1,d5
+			bra.s	.setTagLoop
+
+.setDone		or.l	d5,d0						; Combine superclass return and redraw flag
+			bra.s	.setExit2
+
+.setExit		moveq	#0,d0
+.setExit2		bra.w	.exit
 
 .askMinMax		movem.l	a0-a2/a6,-(sp)
 			move.l	a1,-(sp)
@@ -1448,7 +1518,9 @@ _AskFile		movem.l	d1/d5/a0-a3/a6,-(sp)
 			; Input:
 			;	d0 = Status
 
-_SetStatus		movem.l	d0-d1/a0-a1/a6,-(sp)
+_SetStatus		movem.l	d0-d2/a0-a1/a6,-(sp)
+			move.l	d0,d2
+
 			movea.l	vmp_IntuitionBase(a5),a6
 			movea.l	vmp_MUI_MainWdwStatusText(a5),a0
 			lea	vmp_StatusTable,a1
@@ -1458,7 +1530,27 @@ _SetStatus		movem.l	d0-d1/a0-a1/a6,-(sp)
 			INITSTACKTAG
 			STACKREGTAG	a1, MUIA_Text_Contents
 			CALLSTACKTAG	_LVOSetAttrsA,a1
-			movem.l	(sp)+,d0-d1/a0-a1/a6
+			
+			; Synchronize Play/Pause button image with the new status
+			cmp.l	#VMP_STATUS_PLAYING,d2
+			beq.s	.setStatusPlaying
+			
+			; Not playing (Idle, Error, etc.) -> show Play image
+			movea.l	vmp_MUI_MainWdwButtonPlay(a5),a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_ImgBuffer_Play(a5), CUSTOMBTN_Image
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+			bra.s	.setStatusDone
+
+.setStatusPlaying
+			; Playing -> show Pause image
+			movea.l	vmp_MUI_MainWdwButtonPlay(a5),a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_ImgBuffer_Pause(a5), CUSTOMBTN_Image
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+.setStatusDone
+			movem.l	(sp)+,d0-d2/a0-a1/a6
 			rts
 
 
@@ -1535,27 +1627,23 @@ vmp_Signals			ds.l	1							; Referenced from vmp_Method_Input structure
 
 				; Main windows hooks
 vmp_Hook_MainWdwButtonDirlist	ds.b	MLN_SIZE
-				dc.l	_MainWdwButtonPressedDirlist				; h_entry - Pointing to routine to be executed
+				dc.l	_MainWdwButtonDirlist				; h_entry - Pointing to routine to be executed
 				dc.l	0,0							; h_SubEntry, h_data
 
 vmp_Hook_MainWdwButtonPlay	ds.b	MLN_SIZE
-				dc.l	_MainWdwButtonPressedPlay				; h_entry - Pointing to routine to be executed
-				dc.l	0,0							; h_SubEntry, h_data
-
-vmp_Hook_MainWdwButtonPause	ds.b	MLN_SIZE
-				dc.l	_MainWdwButtonPressedPause				; h_entry - Pointing to routine to be executed
+				dc.l	_MainWdwButtonPlay					; h_entry - Pointing to routine to be executed
 				dc.l	0,0							; h_SubEntry, h_data
 
 vmp_Hook_MainWdwButtonNext	ds.b	MLN_SIZE
-				dc.l	_MainWdwButtonPressedNext				; h_entry - Pointing to routine to be exeh^ed
+				dc.l	_MainWdwButtonNext					; h_entry - Pointing to routine to be exeh^ed
 				dc.l	0,0							; h_SubEntry, h_data
 
 vmp_Hook_MainWdwButtonPrevious	ds.b	MLN_SIZE
-				dc.l	_MainWdwButtonPressedPrevious				; h_entry - Pointing to routine to be exeh^ed
+				dc.l	_MainWdwButtonPrevious					; h_entry - Pointing to routine to be exeh^ed
 				dc.l	0,0							; h_SubEntry, h_data
 
 vmp_Hook_MainWdwButtonPlaylist	ds.b	MLN_SIZE
-				dc.l	_MainWdwButtonPressedPlaylist				; h_entry - Pointing to routine to be executed
+				dc.l	_MainWdwButtonPlaylist					; h_entry - Pointing to routine to be executed
 				dc.l	0,0							; h_SubEntry, h_data
 
 vmp_Hook_MainWdwSliderVolume	ds.b	MLN_SIZE
@@ -1568,11 +1656,11 @@ vmp_Hook_MainWdwAppMessage	ds.b	MLN_SIZE
 
 				; Dirlist window hooks
 vmp_Hook_DirlistButtonClose	ds.b	MLN_SIZE
-				dc.l	_DirlistButtonPressedClose
+				dc.l	_DirlistButtonClose
 				dc.l	0,0
 
 vmp_Hook_DirlistListview		ds.b	MLN_SIZE
-				dc.l	_DirlistPressedDirlist
+				dc.l	_DirlistClicked
 				dc.l	0,0
 
 vmp_Hook_DirlistDirChanged	ds.b	MLN_SIZE

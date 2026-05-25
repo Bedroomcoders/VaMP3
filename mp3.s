@@ -190,7 +190,7 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 			bsr	_SetStatus
 			moveq	#VMP_AUDIO_CHANNEL,d0
 			bsr	_StopAudio
-			bsr	_MainWdwButtonPressedNext			;Play next song
+			bsr	_MainWdwButtonNext					;Play next song
 			bra.s	.exit
     
 .decoded		lea	vmp_DecodeStream1,a0

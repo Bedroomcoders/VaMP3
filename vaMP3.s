@@ -68,7 +68,6 @@
 			APTR	vmp_MUI_MainWdwButtonDirlist
 			APTR	vmp_MUI_MainWdwSliderVolume
 			APTR	vmp_MUI_MainWdwButtonStop
-			APTR	vmp_MUI_MainWdwButtonPause
 			APTR	vmp_MUI_MainWdwButtonPlay
 			APTR	vmp_MUI_MainWdwButtonNext
 			APTR	vmp_MUI_MainWdwButtonPrevious
