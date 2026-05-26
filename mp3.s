@@ -233,9 +233,32 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 			move.l	#vmp_DecodeStreamArray,a1
 			LVO	MPEGA_Decode
 			tst.l	d0
-			bgt	.decoded
+			bgt.s	.decoded
 			
-			; EOF or Error!
+			; Check if we are close to the end of the song
+			move.l	vmp_DecodedSamples(a5),d0
+			divu.l	vmp_SongSampleRate(a5),d0			; d0 = ElapsedSeconds
+			mulu.l	#1000,d0							; d0 = ElapsedMS
+			
+			move.l	vmp_SongDuration(a5),d1
+			cmp.l	#3000,d1
+			bls.s	.eof								; If song is under 3 seconds, always treat as EOF!
+			sub.l	#2000,d1
+			cmp.l	d1,d0
+			bhs.s	.eof								; If we are close to the end, treat as EOF!
+			
+			; Transient decode error (e.g. sync lost). Write silence for 1152 samples.
+			movea.l	vmp_PCM_DecodePointer(a5),a2
+			move.l	#1152-1,d1
+.clearLoop	move.l	#0,(a2)+
+			dbf	d1,.clearLoop
+			move.l	a2,vmp_PCM_DecodePointer(a5)
+			add.l	#1152,vmp_DecodedSamples(a5)
+			dbf	d2,.decodeLoop
+			bra.s	.checkFull
+			
+.eof
+			; Genuine EOF! Play next song.
 			move.l	#0,vmp_Playing(a5)
 			move.l	#0,vmp_FramesToDecode(a5)
 			move.l	#VMP_STATUS_IDLE,d0
@@ -245,22 +268,21 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 			bsr	_MainWdwButtonNext					;Play next song
 			bra.s	.exit
     
-.decoded		add.l	d0,vmp_DecodedSamples(a5)
+.decoded	add.l	d0,vmp_DecodedSamples(a5)
 			lea	vmp_DecodeStream1,a0
 			lea	vmp_DecodeStream2,a1
 			move.l	vmp_PCM_DecodePointer(a5),a2
 
 			subq.l	#1,d0
-.copyLoop		move.w	(a0)+,(a2)+						; Copying channel 1
+.copyLoop	move.w	(a0)+,(a2)+						; Copying channel 1
 			move.w	(a1)+,(a2)+						; Copying channel 2 
-    			dbf	d0,.copyLoop
+    		dbf	d0,.copyLoop
 			
 			move.l	a2,vmp_PCM_DecodePointer(a5)				; Save pointer
 
 			dbf	d2,.decodeLoop
 			
-			; Check if buffer is completely full!
-			tst.l	vmp_FramesToDecode(a5)
+.checkFull	tst.l	vmp_FramesToDecode(a5)
 			bne.s	.exit
 			
 			; Buffer is full! Save length and QUEUE!
@@ -453,16 +475,65 @@ _SeekMP3		movem.l	d0-d7/a0-a4/a6,-(sp)
 			movea.l	vmp_MPEGABase(a5),a6
 			movea.l	vmp_MP3_Stream(a5),a0
 			move.l	d5,d0								; d0 = target time in ms
+			moveq	#0,d1								; d1 = absolute seek mode (0)
 			LVO	MPEGA_Seek
 			
-			; 4. Update decoded samples count to keep elapsed time display in sync
-			; TargetSamples = TargetSeconds * SampleRate
+			tst.l	d0									; Check for seek failure (negative return value)
+			bmi.w	.fallback							; If failed, branch to safe fallback loop!
+			
+			; Success! Update decoded samples count to keep elapsed time in sync
 			move.l	d5,d0								; d0 = TargetMS
 			divu.l	#1000,d0							; d0 = TargetSeconds
 			move.l	vmp_SongSampleRate(a5),d1
 			mulu.l	d1,d0								; d0 = TargetSamples
 			move.l	d0,vmp_DecodedSamples(a5)
+			bra.s	.fillBuffers
 			
+.fallback
+			; Fallback: Close and Reopen stream, then perform sequential frame skip
+			movea.l	vmp_MPEGABase(a5),a6
+			movea.l	vmp_MP3_Stream(a5),a0
+			LVO	MPEGA_Close
+			move.l	#0,vmp_MP3_Stream(a5)
+			
+			; Reopen stream
+			lea	vmp_FilenameBuffer,a0
+			lea	MP3_Ctrl,a1
+			LVO	MPEGA_Open
+			tst.l	d0
+			beq.w	.exit								; If open failed, fail
+			move.l	d0,vmp_MP3_Stream(a5)
+			
+			; Reset sample counter
+			move.l	#0,vmp_DecodedSamples(a5)
+			
+			; Calculate TargetSamples
+			move.l	d5,d0								; d0 = TargetMS
+			divu.l	#1000,d0							; d0 = TargetSeconds
+			move.l	vmp_SongSampleRate(a5),d1
+			mulu.l	d1,d0								; d0 = TargetSamples
+			move.l	d0,d4								; d4 = TargetSamples (cache in d4)
+			
+			; Skip loop
+			movea.l	vmp_MPEGABase(a5),a6
+			move.l	vmp_MP3_Stream(a5),d6				; cache in d6
+			
+.skipLoop
+			cmp.l	vmp_DecodedSamples(a5),d4
+			bls.s	.skipDone
+			
+			movea.l	d6,a0
+			move.l	#vmp_DecodeStreamArray,a1
+			LVO	MPEGA_Decode
+			tst.l	d0
+			ble.s	.skipDone
+			
+			add.l	d0,vmp_DecodedSamples(a5)
+			bra.s	.skipLoop
+			
+.skipDone
+
+.fillBuffers
 			; 5. Re-fill double buffers (Buffer A & B)
 			; 1. Decode Buffer A (0)
 			move.l	#4,vmp_PCM_ActiveBuffer(a5)
@@ -485,11 +556,15 @@ _SeekMP3		movem.l	d0-d7/a0-a4/a6,-(sp)
 			tst.l	vmp_FramesToDecode(a5)
 			bne.s	.initLoop2
 			
-			; Clear dynamic signals
+			; Clear dynamic signals in OS and vmp_Signals
 			movea.l	4.w,a6
 			moveq	#0,d0
 			move.l	vmp_InterruptMask(a5),d1
 			LVO	SetSignal
+			
+			move.l	vmp_InterruptMask(a5),d0
+			not.l	d0
+			and.l	d0,vmp_Signals
 			
 			; 6. Resume Player & DMA
 			bsr	_ResumePlayer
