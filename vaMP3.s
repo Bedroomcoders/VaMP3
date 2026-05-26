@@ -53,6 +53,10 @@
 			LONG	vmp_Volume
 			LONG	vmp_PlayingFrom					; Started from Dirlist or Playlist?
 			LONG	vmp_PlayingIndex				; Which song in the list?
+			LONG	vmp_SongDuration
+			LONG	vmp_SongSampleRate
+			LONG	vmp_DecodedSamples
+			LONG	vmp_SliderGrabbed
 			APTR	vmp_Intui_Window
 			APTR	vmp_Intui_UserPort
 			LONG	vmp_InterruptSignal
@@ -72,8 +76,10 @@
 			APTR	vmp_MUI_MainWdwButtonNext
 			APTR	vmp_MUI_MainWdwButtonPrevious
 			APTR	vmp_MUI_MainWdwStatusText
-			APTR	vmp_MUI_MainWdwHGroup1
-			APTR	vmp_MUI_MainWdwHGroup2
+			APTR	vmp_MUI_MainWdwSliderPosition
+			APTR	vmp_MUI_MainWdwTextTime
+			APTR	vmp_MUI_MainWdwTextSongName
+			APTR	vmp_MUI_MainWdwButtonHGroup
 			APTR	vmp_MUI_MainWdwVGroup
 			APTR	vmp_MUI_DirlistWindow
 			APTR	vmp_MUI_DirlistVGroup
@@ -145,6 +151,12 @@
 			APTR	vmp_ImgBuffer_Prev
 			LONG	vmp_ImgWidth_Prev
 			LONG	vmp_ImgHeight_Prev
+			APTR	vmp_ImgBuffer_Playlist
+			LONG	vmp_ImgWidth_Playlist
+			LONG	vmp_ImgHeight_Playlist
+			APTR	vmp_ImgBuffer_Dirlist
+			LONG	vmp_ImgWidth_Dirlist
+			LONG	vmp_ImgHeight_Dirlist
 		LABEL	vmp_SIZEOF
 
 
@@ -374,6 +386,22 @@ _Init			move.l	4.w,a6
 			move.l	d1,vmp_ImgWidth_Prev(a5)
 			move.l	d2,vmp_ImgHeight_Prev(a5)
 
+			lea	str_ImgPlaylist,a0
+			bsr	_BuildImageFilename
+			lea	vmp_FilenameBuffer,a0
+			bsr	_LoadARGBImage
+			move.l	d0,vmp_ImgBuffer_Playlist(a5)
+			move.l	d1,vmp_ImgWidth_Playlist(a5)
+			move.l	d2,vmp_ImgHeight_Playlist(a5)
+
+			lea	str_ImgDirlist,a0
+			bsr	_BuildImageFilename
+			lea	vmp_FilenameBuffer,a0
+			bsr	_LoadARGBImage
+			move.l	d0,vmp_ImgBuffer_Dirlist(a5)
+			move.l	d1,vmp_ImgWidth_Dirlist(a5)
+			move.l	d2,vmp_ImgHeight_Dirlist(a5)
+
 			; Create MUI - Application, Window, buttons, etc
 			bsr	_InitCustomClass
 			bsr	_BuildGui
@@ -545,6 +573,7 @@ _EventHandler		movem.l	d0-d2/a0-a2/a6,-(sp)
 			bne.s	.checkAudio
 			
 			bsr	_DecodeFrames
+			bsr	_UpdateUIProgress
 			
 .checkAudio		; Check audio interrupt
 			move.l	vmp_Signals,d0
@@ -769,6 +798,9 @@ vmp_DatatypesName	dc.b	"datatypes.library",0
 vmp_TimerDeviceName	dc.b	"timer.device",0
 vmp_UniquePortName	dc.b	"VAMP3.1",0
 			even
+vmp_TimeBuffer		ds.b	32
+vmp_NameBuffer		ds.b	128
+			even
 
 vmp_StructPointer	dc.l	0
 vmp_WorkbenchMessage	dc.l	0
@@ -781,6 +813,8 @@ str_ImgPlay		dc.b	"Play.png",0
 str_ImgPause		dc.b	"Pause.png",0
 str_ImgNext		dc.b	"Next.png",0
 str_ImgPrev		dc.b	"Previous.png",0
+str_ImgPlaylist		dc.b	"Playlist.png",0
+str_ImgDirlist		dc.b	"Dirlist.png",0
 			even
 
 

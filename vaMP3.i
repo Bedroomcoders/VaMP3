@@ -12,7 +12,9 @@ INTREQR				equ	$dff01c
 _LVOMPEGA_Open			equ	-30
 _LVOMPEGA_Decode		equ	-42
 _LVOMPEGA_Close			equ	-36
+_LVOMPEGA_Seek			equ	-48
 
+mp3_ms_bitrate			equ	18
 mp3_ms_duration			equ	14	; Offset in struct
 mp3_dec_frequency		equ	28
 
@@ -34,7 +36,7 @@ PMODE_V43		equ	$1
 
 	; Application specific constants
 VMP_MAINWINDOWID		equ	1
-VMP_MAINWINDOWWIDTH		equ	300
+VMP_MAINWINDOWWIDTH		equ	500
 VMP_MAINWINDOWHEIGHT		equ	500
 
 VMP_DIRLISTWINDOWID		equ	2
@@ -72,4 +74,5 @@ VMP_PLAYINGFROM_PLAYLIST	equ	2
 VMP_SETTINGS_IMAGEPATHID		equ	1
 VMP_SETTINGS_DEFAULTMP3FOLDERID	equ	2
 VMP_MAIN_VOLUMEID		equ	3
+VMP_MAIN_POSITIONID		equ	4
 

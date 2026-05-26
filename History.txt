@@ -4,12 +4,13 @@ Known issues:
   
 Planned:
  - Drag&Drop to build playlist
- - Song info on main window
- - Position slider to show song progress and to move forward/back in playing song
  - AREXX interface?
 
  
 Changes:
+ - New layout. Dirlist and Playlist is now Image buttons
+ - Position slider to show song progress and to move forward/back in playing song
+ - Song info on main window
  - Check for existing instance and allow only program to run once
  - Shortcuts
  - User selectable Tapedeck buttons using datatypes

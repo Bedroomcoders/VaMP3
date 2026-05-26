@@ -134,13 +134,13 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			movea.l	vmp_MUIBase(a5),a6
 			moveq	#1,d5
 			
-			CREATEMUIBUTTON	txt_MainWdwPlaylist, 112			; Shortcut "p"
-			move.l	d0,vmp_MUI_MainWdwButtonPlaylist(a5)			; Create Playlist Button
-			beq.w	.error
+		;	CREATEMUIBUTTON	txt_MainWdwPlaylist, 112			; Shortcut "p"
+		;	move.l	d0,vmp_MUI_MainWdwButtonPlaylist(a5)			; Create Playlist Button
+		;	beq.w	.error
 
-			CREATEMUIBUTTON	txt_MainWdwDirlist, 100				; Shortcut "d"
-			move.l	d0,vmp_MUI_MainWdwButtonDirlist(a5)			; Create Dirlist Button
-			beq.w	.error
+		;	CREATEMUIBUTTON	txt_MainWdwDirlist, 100				; Shortcut "d"
+		;	move.l	d0,vmp_MUI_MainWdwButtonDirlist(a5)			; Create Dirlist Button
+		;	beq.w	.error
 
 			move.l	vmp_ImgBuffer_Stop(a5),d0
 			move.l	vmp_ImgWidth_Stop(a5),d1
@@ -171,44 +171,90 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_MainWdwButtonPrevious(a5)			; Create Previous Button
 			beq	.error
 
-			CREATEMUITEXT	vmp_StatusIdleTxt
-			move.l	d0,vmp_MUI_MainWdwStatusText(a5)			; Create Status field
+			move.l	vmp_ImgBuffer_Playlist(a5),d0
+			move.l	vmp_ImgWidth_Playlist(a5),d1
+			move.l	vmp_ImgHeight_Playlist(a5),d2
+			CREATEMUICUSTOMBUTTON	d0,d1,d2,112				; Shortcut "p"
+			move.l	d0,vmp_MUI_MainWdwButtonPlaylist(a5)			; Create Playlist Button
 			beq	.error
 
+			move.l	vmp_ImgBuffer_Dirlist(a5),d0
+			move.l	vmp_ImgWidth_Dirlist(a5),d1
+			move.l	vmp_ImgHeight_Dirlist(a5),d2
+			CREATEMUICUSTOMBUTTON	d0,d1,d2,100				; Shortcut "d"
+			move.l	d0,vmp_MUI_MainWdwButtonDirlist(a5)			; Create Dirlist Button
+			beq	.error
+
+			CREATEMUILABEL	vmp_StatusIdleTxt
+			move.l	d0,vmp_MUI_MainWdwStatusText(a5)			; Create Status field
+			beq.w	.error
+
+			; Create Song Name Text (Centered)
+			CREATEMUITEXT	vmp_EmptyTxt
+			move.l	d0,vmp_MUI_MainWdwTextSongName(a5)
+			beq.w	.error
+
+			; Create Position Slider
+			lea	MUIC_Slider,a0
+			INITSTACKTAG
+			STACKVALTAG	0,MUIA_Numeric_Min
+			STACKVALTAG	1000,MUIA_Numeric_Max
+			STACKVALTAG	0,MUIA_Numeric_Value
+			STACKVALTAG	VMP_MAIN_POSITIONID, MUIA_ObjectID
+			STACKVALTAG	TRUE,MUIA_Slider_Quiet
+			STACKVALTAG	MUIV_Frame_None, MUIA_Frame
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_MainWdwSliderPosition(a5)
+			beq.w	.error
+
+			; Create Time Text (Centered)
+			CREATEMUILABEL	vmp_DefaultTimeTxt
+			move.l	d0,vmp_MUI_MainWdwTextTime(a5)
+			beq.w	.error
+
+			; Create Volume Slider
 			lea	MUIC_Slider,a0
 			INITSTACKTAG
 			STACKVALTAG	VMP_AUDIO_VOLUME,MUIA_Numeric_Default
 			STACKVALTAG	VMP_MAIN_VOLUMEID, MUIA_ObjectID
+			STACKVALTAG	MUIV_Frame_None, MUIA_Frame
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_MainWdwSliderVolume(a5)				; Create Volume slider
-			beq	.error
+			beq.w	.error
 
+			; Create ButtonHGroup (Next, Stop, Play, Prev buttons)
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_MainWdwSliderVolume(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_MainWdwButtonPlaylist(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_MainWdwButtonDirlist(a5), MUIA_Group_Child
-			STACKVALTAG	TRUE, MUIA_Group_Horiz
-			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_MainWdwHGroup1(a5)				; Create MUI Horizontal Group 1
-			beq	.error
-
-			lea	MUIC_Group,a0
-			INITSTACKTAG
 			STACKREGTAG	vmp_MUI_MainWdwButtonNext(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_MainWdwButtonStop(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_MainWdwButtonPlay(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_MainWdwButtonPrevious(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_MainWdwHGroup2(a5)				; Create MUI Horizontal Group 2
-			beq	.error
+			move.l	d0,vmp_MUI_MainWdwButtonHGroup(a5)
+			beq.w	.error
 
+			; Create Info Panel Group (Framed, Vertical)
 			lea	MUIC_Group,a0
 			INITSTACKTAG
+			STACKREGTAG	vmp_MUI_MainWdwTextTime(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_MainWdwStatusText(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_MainWdwHGroup1(a5), MUIA_Group_Child
-			STACKREGTAG	vmp_MUI_MainWdwHGroup2(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwTextSongName(a5), MUIA_Group_Child
+			STACKVALTAG	FALSE, MUIA_Group_Horiz
+			STACKVALTAG	MUIV_Frame_Text, MUIA_Frame
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,d3								; Keep InfoGroup handle in d3
+			beq.w	.error
+
+			; Create Main Vertical Group
+			lea	MUIC_Group,a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_MUI_MainWdwSliderVolume(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwButtonHGroup(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_MainWdwSliderPosition(a5), MUIA_Group_Child
+			STACKREGTAG	d3, MUIA_Group_Child				; Framed Info Group containing Status, Song Name, Timers
 			STACKVALTAG	FALSE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_MainWdwVGroup(a5)				; Create MUI Vertical Group
@@ -706,6 +752,8 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
  			DOMETHOD vmp_MUI_MainWdwButtonNext(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MainWdwButtonNext
  			DOMETHOD vmp_MUI_MainWdwButtonPrevious(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MainWdwButtonPrevious
 			DOMETHOD vmp_MUI_MainWdwSliderVolume(a5), #MUIM_Notify, #MUIA_Numeric_Value, #MUIV_EveryTime, #MUIV_Notify_Window, #3, #MUIM_CallHook, #vmp_Hook_MainWdwSliderVolume, #MUIV_TriggerValue
+			DOMETHOD vmp_MUI_MainWdwSliderPosition(a5), #MUIM_Notify, #MUIA_Pressed, #TRUE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MainWdwSliderPositionGrabbed
+			DOMETHOD vmp_MUI_MainWdwSliderPosition(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MainWdwSliderPositionReleased
 
 
 			; Dirlist window methods
@@ -1090,6 +1138,8 @@ _DirlistClicked		movem.l	a0-a1/a5-a6,-(sp)
 			bsr	_PausePlayer
 			movea.l		vmp_MUI_TempFilePointer(a5),a0
 			bsr	_NewMP3
+			tst.l	d0
+			beq.s	.done
 			bsr	_ResumePlayer
 			bra.s	.done
 
@@ -1220,6 +1270,8 @@ _PlaylistButtonAddFile
 						
 			lea	vmp_FilenameBuffer,a0
 			bsr	_NewMP3
+			tst.l	d0
+			beq.s	.done
 			bsr	_ResumePlayer
 
 .done			moveq	#0,d0
@@ -1323,6 +1375,210 @@ _MenuSettings		movem.l	a0/a5-a6,-(sp)
 
 			moveq	#0,d0
 			movem.l	(sp)+,a0/a5-a6
+			rts
+
+			;------------------------------------------------------------
+			; _MainWdwSliderPositionGrabbed
+			;------------------------------------------------------------
+_MainWdwSliderPositionGrabbed
+			movem.l	a5,-(sp)
+			movea.l	vmp_StructPointer,a5
+			move.l	#1,vmp_SliderGrabbed(a5)
+			movem.l	(sp)+,a5
+			moveq	#0,d0
+			rts
+
+			;------------------------------------------------------------
+			; _MainWdwSliderPositionReleased
+			;------------------------------------------------------------
+_MainWdwSliderPositionReleased
+			movem.l	a0-a2/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+			
+			; 1. Clear grab flag
+			move.l	#0,vmp_SliderGrabbed(a5)
+			
+			; 2. Get current slider value
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_MainWdwSliderPosition(a5),a0
+			move.l	#MUIA_Numeric_Value,d0
+			lea	vmp_TempVariable(a5),a1
+			LVO	GetAttr
+			tst.l	d0
+			beq.s	.done
+			
+			; 3. Execute seek to target percentage
+			move.l	vmp_TempVariable(a5),d0				; d0 = value between 0 and 1000
+			bsr	_SeekMP3
+			
+.done		moveq	#0,d0
+			movem.l	(sp)+,a0-a2/a5-a6
+			rts
+
+			;------------------------------------------------------------
+			; _GetFileNamePart
+			;
+			; Input: a0 = Full path pointer
+			; Output: a0 = File name part pointer
+			;------------------------------------------------------------
+_GetFileNamePart
+			movem.l	a1,-(sp)
+			move.l	a0,a1
+.findEnd	tst.b	(a1)+
+			bne.s	.findEnd
+			subq.l	#2,a1								; point to last char
+.loop		cmp.b	#'/',(a1)
+			beq.s	.found
+			cmp.b	#':',(a1)
+			beq.s	.found
+			subq.l	#1,a1
+			cmp.l	a0,a1
+			bhs.s	.loop
+			bra.s	.done
+.found		addq.l	#1,a1
+			move.l	a1,a0
+.done		movem.l	(sp)+,a1
+			rts
+
+			;------------------------------------------------------------
+			; _UpdateUIProgress
+			;------------------------------------------------------------
+_UpdateUIProgress
+			movem.l	d0-d4/a0-a2/a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+			
+			tst.l	vmp_Playing(a5)
+			beq.w	.exit
+			
+			; 1. Calculate Elapsed Time in Milliseconds
+			; ElapsedMS = (vmp_DecodedSamples * 1000) / vmp_SongSampleRate
+			move.l	vmp_DecodedSamples(a5),d0
+			
+			; Check if we have duration
+			move.l	vmp_SongDuration(a5),d4
+			beq.w	.exit
+			
+			; Avoid division by zero
+			move.l	vmp_SongSampleRate(a5),d3
+			beq.w	.exit
+			
+			; Calculate ElapsedMS = (DecodedSamples / SampleRate) * 1000 + ((DecodedSamples % SampleRate) * 1000) / SampleRate
+			move.l	d0,d1
+			divu.l	d3,d1								; d1 = Seconds (quotient)
+			
+			move.l	d1,d2								; d2 = Seconds
+			mulu.l	d3,d2								; d2 = Seconds * SampleRate
+			sub.l	d2,d0								; d0 = Remainder (DecodedSamples - d2)
+			
+			mulu.l	#1000,d0							; d0 = Remainder * 1000
+			divu.l	d3,d0								; d0 = FractionalMS
+			
+			mulu.l	#1000,d1							; d1 = Seconds * 1000
+			add.l	d0,d1								; d1 = ElapsedMS
+			
+			; Limit to vmp_SongDuration
+			cmp.l	d4,d1
+			bls.s	.timeOk
+			move.l	d4,d1
+.timeOk
+			move.l	d1,d3								; Preserve ElapsedMS in d3 (preserved register) from clobbering
+			
+			; 2. Update Slider Value (if not grabbed)
+			tst.l	vmp_SliderGrabbed(a5)
+			bne.s	.skipSlider
+			
+			; SliderVal = (ElapsedMS * 1000) / vmp_SongDuration
+			move.l	d3,d2								; d2 = ElapsedMS
+			cmp.l	#4000000,d4							; check if duration is under 4 million ms (~66 mins)
+			bcs.s	.sliderSafePrecision
+			
+			; Overflow-safe calculation for very long streams
+			divu.l	#1000,d2							; d2 = ElapsedSeconds
+			mulu.l	#1000,d2							; d2 = ElapsedSeconds * 1000
+			move.l	d4,d0								; d0 = SongDuration
+			divu.l	#1000,d0							; d0 = DurationSeconds
+			divu.l	d0,d2								; d2 = SliderVal (0-1000)
+			bra.s	.setSlider
+			
+.sliderSafePrecision
+			mulu.l	#1000,d2
+			divu.l	d4,d2								; d2 = SliderVal (0-1000)
+			
+.setSlider
+			; Set Slider Value
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_MainWdwSliderPosition(a5),a0
+			INITSTACKTAG
+			STACKREGTAG	d2, MUIA_Numeric_Value
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+			
+.skipSlider
+			; 3. Format Time String "MM:SS / MM:SS"
+			; Convert ElapsedMS (d3) to minutes and seconds
+			move.l	d3,d1								; Restore ElapsedMS from preserved d3 into d1
+			divu.l	#1000,d1							; d1 = ElapsedSeconds
+			move.l	d1,d0								; d0 = ElapsedSeconds
+			divu.w	#60,d0								; d0.w = quotient (minutes), d0.hw = remainder (seconds)
+			move.l	d0,d2								; Keep quotient & remainder in d2
+			
+			; Convert TotalMS (d4) to minutes and seconds
+			divu.l	#1000,d4							; d4 = TotalSeconds
+			move.l	d4,d0
+			divu.w	#60,d0								; d0.w = quotient (minutes), d0.hw = remainder (seconds)
+			move.l	d0,d3								; Keep quotient & remainder in d3
+			
+			; Format time string: "MM:SS / MM:SS"
+			; We will write it into vmp_TimeBuffer
+			lea	vmp_TimeBuffer,a0
+			move.b	#27,(a0)+							; ESC
+			move.b	#'c',(a0)+							; Center command
+			
+			; Elapsed Minutes
+			move.w	d2,d0								; d0 = minutes
+			bsr.s	.write2Digits
+			move.b	#':',(a0)+
+			
+			; Elapsed Seconds
+			swap	d2
+			move.w	d2,d0								; d0 = seconds
+			bsr.s	.write2Digits
+			
+			; Separator
+			move.b	#' ',(a0)+
+			move.b	#'/',(a0)+
+			move.b	#' ',(a0)+
+			
+			; Total Minutes
+			move.w	d3,d0								; d0 = minutes
+			bsr.s	.write2Digits
+			move.b	#':',(a0)+
+			
+			; Total Seconds
+			swap	d3
+			move.w	d3,d0								; d0 = seconds
+			bsr.s	.write2Digits
+			
+			move.b	#0,(a0)								; Null-terminate
+			
+			; Update Time UI Text
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_MainWdwTextTime(a5),a0
+			INITSTACKTAG
+			STACKADRTAG	vmp_TimeBuffer, MUIA_Text_Contents
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+			
+.exit		movem.l	(sp)+,d0-d4/a0-a2/a6
+			rts
+
+; Local helper to write 2 digits of d0 to a0
+.write2Digits
+			andi.l	#$ffff,d0							; Clear high word of d0 to prevent division overflow/garbage
+			divu.w	#10,d0
+			add.b	#'0',d0								; Tens digit
+			move.b	d0,(a0)+
+			swap	d0
+			add.b	#'0',d0								; Units digit
+			move.b	d0,(a0)+
 			rts
 
 
@@ -1820,6 +2076,17 @@ vmp_Hook_MenuAbout		ds.b	MLN_SIZE
 				dc.l	_MenuAbout
 				dc.l	0,0
 
+vmp_Hook_MainWdwSliderPositionGrabbed	ds.b	MLN_SIZE
+				dc.l	_MainWdwSliderPositionGrabbed
+				dc.l	0,0
+
+vmp_Hook_MainWdwSliderPositionReleased	ds.b	MLN_SIZE
+				dc.l	_MainWdwSliderPositionReleased
+				dc.l	0,0
+
+vmp_EmptyTxt		dc.b	$1b,"cNo song loaded",0
+vmp_DefaultTimeTxt	dc.b	$1b,"c00:00 / 00:00",0
+
 				even
 vmp_FilenameBuffer		ds.b	256
 
@@ -1828,9 +2095,9 @@ vmp_FilenameBuffer		ds.b	256
 			
 			even
 vmp_StatusTable		dc.l	vmp_StatusIdleTxt,vmp_StatusPlayingTxt,vmp_StatusOpenErrorTxt,vmp_StatusDecodingTxt,vmp_StatusPausedTxt,0
-vmp_StatusIdleTxt	dc.b	"Idle",0
-vmp_StatusPlayingTxt	dc.b	"Playing",0
-vmp_StatusOpenErrorTxt	dc.b	"Error opening file.",0
-vmp_StatusDecodingTxt	dc.b	"Decoding mp3.",0
-vmp_StatusPausedTxt	dc.b	"Paused",0
+vmp_StatusIdleTxt	dc.b	$1b,"c","Idle",0
+vmp_StatusPlayingTxt	dc.b	$1b,"c","Playing",0
+vmp_StatusOpenErrorTxt	dc.b	$1b,"c","Error opening file.",0
+vmp_StatusDecodingTxt	dc.b	$1b,"c","Decoding mp3.",0
+vmp_StatusPausedTxt	dc.b	$1b,"c","Paused",0
 

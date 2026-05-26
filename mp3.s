@@ -12,18 +12,63 @@
 			; Result:
 			;	d0 = FALSE if failed
 
-_NewMP3			movem.l	d0-d1/a0-a1/a6,-(sp)
-			bsr	_CloseMP3
+_NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
+			movea.l	a0,a2							; a2 = filename
+			
+			; Avoid self-copy if already in vmp_FilenameBuffer
+			cmpa.l	#vmp_FilenameBuffer,a0
+			beq.s	.skipCopy
+
+			; Copy filename to vmp_FilenameBuffer so _SeekMP3 can reopen it
+			lea	vmp_FilenameBuffer,a1
+.copyPath	move.b	(a0)+,(a1)+
+			bne.s	.copyPath
+			
+.skipCopy	bsr	_CloseMP3
 			movea.l	vmp_MPEGABase(a5),a6
+			lea	vmp_FilenameBuffer,a0				; Restore correct filename pointer in a0 for MPEGA_Open
 			lea     MP3_Ctrl,a1
 			LVO	MPEGA_Open
 			tst.l   d0
 			bne.s	.mp3Opened
 			moveq	#VMP_STATUS_OPENERROR,d0
 			bsr	_SetStatus
-			bra.s	.done
+			moveq	#0,d0								; return FALSE
+			bra.w	.done
 
 .mp3Opened		move.l	d0,vmp_MP3_Stream(a5)
+			movea.l	d0,a0							; a0 = stream pointer
+			
+			; 1. Reset decoded samples and slider grabbed
+			move.l	#0,vmp_DecodedSamples(a5)
+			move.l	#0,vmp_SliderGrabbed(a5)
+			
+			; 2. Read and store duration
+			move.l	mp3_ms_duration(a0),d0
+			move.l	d0,vmp_SongDuration(a5)
+			
+			; 3. Read and store sample rate
+			move.l	mp3_dec_frequency(a0),d1
+			move.l	d1,vmp_SongSampleRate(a5)
+			
+
+			
+			; 5. Extract and display centered Song Name
+			lea	vmp_NameBuffer,a1
+			move.b	#27,(a1)+							; ESC
+			move.b	#'c',(a1)+							; center command
+			
+			movea.l	a2,a0
+			bsr	_GetFileNamePart					; a0 = clean filename
+.copyName	move.b	(a0)+,(a1)+
+			bne.s	.copyName
+			
+			; Update Song Name UI Text
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_MainWdwTextSongName(a5),a0
+			INITSTACKTAG
+			STACKADRTAG	vmp_NameBuffer, MUIA_Text_Contents
+			CALLSTACKTAG	_LVOSetAttrsA,a1
 
 			; Stop any playing audio
 			moveq	#VMP_AUDIO_CHANNEL,d0
@@ -78,7 +123,8 @@ _NewMP3			movem.l	d0-d1/a0-a1/a6,-(sp)
 			move.l	#1,vmp_Playing(a5)
 			
 
-.done			movem.l	(sp)+,d0-d1/a0-a1/a6
+.done			move.l	d0,(sp)								; Overwrite d0 slot on stack with return value
+			movem.l	(sp)+,d0-d1/d3/a0-a2/a6
 			rts
 
 
@@ -199,7 +245,8 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 			bsr	_MainWdwButtonNext					;Play next song
 			bra.s	.exit
     
-.decoded		lea	vmp_DecodeStream1,a0
+.decoded		add.l	d0,vmp_DecodedSamples(a5)
+			lea	vmp_DecodeStream1,a0
 			lea	vmp_DecodeStream2,a1
 			move.l	vmp_PCM_DecodePointer(a5),a2
 
@@ -365,6 +412,89 @@ _SetVolume		movem.l	d0-d1/a0,-(sp)
 			move.w	d0,$8(a0)						; AUDxVOL 	- Volume
 			
 .done			movem.l	(sp)+,d0-d1/a0
+			rts
+
+			;------------------------------------------------------------
+			; _SeekMP3
+			;
+			; Input: d0 = Target Per-mil value (0 to 1000)
+			;------------------------------------------------------------
+_SeekMP3		movem.l	d0-d7/a0-a4/a6,-(sp)
+			move.l	d0,d2								; d2 = TargetPerMil (0-1000)
+			
+			tst.l	vmp_Playing(a5)
+			beq.w	.exit
+			
+			; 1. Pause Player & Stop Audio DMA
+			bsr	_PausePlayer
+			
+			; 2. Calculate target milliseconds (TargetMS) safely
+			move.l	vmp_SongDuration(a5),d0				; d0 = SongDuration (ms)
+			move.l	d0,d1
+			divu.l	#1000,d1							; d1 = SongDuration / 1000 (seconds)
+			cmp.l	#4000000,d0							; check if duration is under 4 million ms (~66 mins)
+			bcs.s	.safePrecision
+			
+			; Safe calculation for very long streams (avoid 32-bit overflow)
+			move.l	d1,d0								; d0 = SongDuration in seconds
+			mulu.l	d2,d0								; d0 = DurationSeconds * TargetPerMil
+			divu.l	#1000,d0							; d0 = TargetSeconds
+			mulu.l	#1000,d0							; d0 = TargetMS
+			bra.s	.calcSamples
+			
+.safePrecision
+			mulu.l	d2,d0								; d0 = SongDuration * TargetPerMil
+			divu.l	#1000,d0							; d0 = TargetMS
+			
+.calcSamples
+			move.l	d0,d5								; d5 = TargetMS
+			
+			; 3. Invoke native seek function in mpega.library
+			movea.l	vmp_MPEGABase(a5),a6
+			movea.l	vmp_MP3_Stream(a5),a0
+			move.l	d5,d0								; d0 = target time in ms
+			LVO	MPEGA_Seek
+			
+			; 4. Update decoded samples count to keep elapsed time display in sync
+			; TargetSamples = TargetSeconds * SampleRate
+			move.l	d5,d0								; d0 = TargetMS
+			divu.l	#1000,d0							; d0 = TargetSeconds
+			move.l	vmp_SongSampleRate(a5),d1
+			mulu.l	d1,d0								; d0 = TargetSamples
+			move.l	d0,vmp_DecodedSamples(a5)
+			
+			; 5. Re-fill double buffers (Buffer A & B)
+			; 1. Decode Buffer A (0)
+			move.l	#4,vmp_PCM_ActiveBuffer(a5)
+			move.l	#28,vmp_FramesToDecode(a5)
+			lea	vmp_PCM_PlayBufferArray,a0
+			move.l	(a0),vmp_PCM_DecodePointer(a5)
+.initLoop1	bsr	_DecodeFrames
+			tst.l	vmp_FramesToDecode(a5)
+			bne.s	.initLoop1
+			
+			; Start playing Buffer A
+			move.l	#0,vmp_PCM_ActiveBuffer(a5)
+			bsr	_PlayMP3
+			
+			; 2. Decode Buffer B (4)
+			move.l	#28,vmp_FramesToDecode(a5)
+			lea	vmp_PCM_PlayBufferArray,a0
+			move.l	4(a0),vmp_PCM_DecodePointer(a5)
+.initLoop2	bsr	_DecodeFrames
+			tst.l	vmp_FramesToDecode(a5)
+			bne.s	.initLoop2
+			
+			; Clear dynamic signals
+			movea.l	4.w,a6
+			moveq	#0,d0
+			move.l	vmp_InterruptMask(a5),d1
+			LVO	SetSignal
+			
+			; 6. Resume Player & DMA
+			bsr	_ResumePlayer
+			
+.exit		movem.l	(sp)+,d0-d7/a0-a4/a6
 			rts
 
 
