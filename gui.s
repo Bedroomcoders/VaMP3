@@ -369,7 +369,7 @@ _BuildDirlistWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 
 
 
-			;------------------------------------------------------------
+						;------------------------------------------------------------
 			; _BuildPlaylistWindow
 			;------------------------------------------------------------
 			; Result:
@@ -389,36 +389,82 @@ _BuildPlaylistWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_PlaylistButtonAddDir(a5)			; Create Add Dir Button
 			beq.w	.error
 
+			CREATEMUIBUTTON	txt_PlaylistRemove
+			move.l	d0,vmp_MUI_PlaylistButtonRemove(a5)			; Create Remove Button
+			beq.w	.error
+
+			CREATEMUIBUTTON	txt_PlaylistClear
+			move.l	d0,vmp_MUI_PlaylistButtonClear(a5)			; Create Clear Button
+			beq.w	.error
+
+			CREATEMUIBUTTON	txt_PlaylistUp
+			move.l	d0,vmp_MUI_PlaylistButtonUp(a5)				; Create Move Up Button
+			beq.w	.error
+
+			CREATEMUIBUTTON	txt_PlaylistDown
+			move.l	d0,vmp_MUI_PlaylistButtonDown(a5)			; Create Move Down Button
+			beq.w	.error
+
+			CREATEMUIBUTTON	txt_PlaylistShuffleOff
+			move.l	d0,vmp_MUI_PlaylistShuffle(a5)				; Create Shuffle Button
+			beq.w	.error
+
+			CREATEMUIBUTTON	txt_PlaylistLoopOff
+			move.l	d0,vmp_MUI_PlaylistLoop(a5)				; Create Loop Button
+			beq.w	.error
+
+			CREATEMUILABEL	txt_PlaylistStatusEmpty
+			move.l	d0,vmp_MUI_PlaylistStatusText(a5)			; Create Status text
+			beq.w	.error
+
 			lea	MUIC_List,a0
 			INITSTACKTAG
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_PlaylistList(a5)				; Create MUI List
-			beq	.error
+			beq.w	.error
 
 			lea	MUIC_Listview,a0
 			INITSTACKTAG
 			STACKREGTAG	d0, MUIA_Listview_List
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_PlaylistListview(a5)				; Create MUI Listview
-			beq	.error
+			beq.w	.error
 
+			; Row 1: Add File, Add Dir, Remove, Clear (stacked in reverse)
 			lea	MUIC_Group,a0
 			INITSTACKTAG
+			STACKREGTAG	vmp_MUI_PlaylistButtonClear(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_PlaylistButtonRemove(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_PlaylistButtonAddDir(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_PlaylistButtonAddFile(a5), MUIA_Group_Child
 			STACKVALTAG	TRUE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_PlaylistHGroup1(a5)				; Create Playlist Horizontal Group 1
-			beq	.error
+			beq.w	.error
 
+			; Row 2: Move Up, Move Down, Shuffle, Loop (stacked in reverse)
 			lea	MUIC_Group,a0
 			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_PlaylistHGroup1(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_PlaylistLoop(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_PlaylistShuffle(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_PlaylistButtonDown(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_PlaylistButtonUp(a5), MUIA_Group_Child
+			STACKVALTAG	TRUE, MUIA_Group_Horiz
+			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+			move.l	d0,vmp_MUI_PlaylistHGroup2(a5)				; Create Playlist Horizontal Group 2
+			beq.w	.error
+
+			; Vertical Layout Assembly (stacked in reverse)
+			lea	MUIC_Group,a0
+			INITSTACKTAG
+			STACKREGTAG	vmp_MUI_PlaylistStatusText(a5), MUIA_Group_Child
 			STACKREGTAG	vmp_MUI_PlaylistListview(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_PlaylistHGroup2(a5), MUIA_Group_Child
+			STACKREGTAG	vmp_MUI_PlaylistHGroup1(a5), MUIA_Group_Child
 			STACKVALTAG	FALSE, MUIA_Group_Horiz
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_PlaylistVGroup(a5)				; Create MUI Vertical Group
-			beq	.error
+			beq.w	.error
 
 			lea	MUIC_Window,a0
 			INITSTACKTAG
@@ -428,9 +474,10 @@ _BuildPlaylistWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			STACKVALTAG	VMP_PLAYLISTWINDOWWIDTH, MUIA_Window_Width
 			STACKVALTAG	VMP_PLAYLISTWINDOWHEIGHT, MUIA_Window_Height
 			STACKVALTAG	TRUE, MUIA_Window_CloseGadget
+			STACKVALTAG	TRUE, MUIA_Window_AppWindow			; Accept Drag & Drop
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1				; Create MUI Window
 			move.l	d0,vmp_MUI_PlaylistWindow(a5)
-			beq	.error
+			beq.w	.error
 
 			moveq	#0,d5
 
@@ -754,9 +801,18 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
  			DOMETHOD vmp_MUI_DirlistParentButton(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_DirlistParent
 
 
-			; Playlist window methods
+						; Playlist window methods
 			DOMETHOD vmp_MUI_PlaylistWindow(a5),#MUIM_Notify, #MUIA_Window_CloseRequest, #TRUE, #MUIV_Notify_Application, #2, #MUIM_CallHook, #vmp_Hook_PlaylistButtonClose
+			DOMETHOD vmp_MUI_PlaylistWindow(a5),#MUIM_Notify, #MUIA_AppMessage, #MUIV_EveryTime, #MUIV_Notify_Self, #3, #MUIM_CallHook, #vmp_Hook_PlaylistAppMessage, #MUIV_TriggerValue
 			DOMETHOD vmp_MUI_PlaylistButtonAddFile(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Window, #2, #MUIM_CallHook, #vmp_Hook_PlaylistButtonAddFile
+			DOMETHOD vmp_MUI_PlaylistButtonAddDir(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Window, #2, #MUIM_CallHook, #vmp_Hook_PlaylistButtonAddDir
+			DOMETHOD vmp_MUI_PlaylistButtonRemove(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Window, #2, #MUIM_CallHook, #vmp_Hook_PlaylistButtonRemove
+			DOMETHOD vmp_MUI_PlaylistButtonClear(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Window, #2, #MUIM_CallHook, #vmp_Hook_PlaylistButtonClear
+			DOMETHOD vmp_MUI_PlaylistButtonUp(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Window, #2, #MUIM_CallHook, #vmp_Hook_PlaylistButtonUp
+			DOMETHOD vmp_MUI_PlaylistButtonDown(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Window, #2, #MUIM_CallHook, #vmp_Hook_PlaylistButtonDown
+			DOMETHOD vmp_MUI_PlaylistShuffle(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Window, #2, #MUIM_CallHook, #vmp_Hook_PlaylistShuffle
+			DOMETHOD vmp_MUI_PlaylistLoop(a5), #MUIM_Notify, #MUIA_Pressed, #FALSE, #MUIV_Notify_Window, #2, #MUIM_CallHook, #vmp_Hook_PlaylistLoop
+			DOMETHOD vmp_MUI_PlaylistListview(a5), #MUIM_Notify, #MUIA_Listview_DoubleClick, #TRUE, #MUIV_Notify_Window, #2, #MUIM_CallHook, #vmp_Hook_PlaylistListDoubleclick
 
 			; Settings window methods
 			DOMETHOD vmp_MUI_SettingsWindow(a5), #MUIM_Notify, #MUIA_Window_CloseRequest, #TRUE, #MUIV_Notify_Application, #2, #MUIM_CallHook, #vmp_Hook_SettingsButtonClose
@@ -1242,7 +1298,7 @@ _PlaylistButtonClose
 
 
 
-			;------------------------------------------------------------
+						;------------------------------------------------------------
 			; _PlaylistButtonPressedAddFile
 			;------------------------------------------------------------
 
@@ -1250,21 +1306,718 @@ _PlaylistButtonAddFile
 			movem.l	a0/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
-			bsr	_PausePlayer
 			lea	vmp_FilenameBuffer,a0
 			bsr	_AskFile
-			bsr	_ResumePlayer
 			tst.l	d0
 			beq.s	.done
 						
 			lea	vmp_FilenameBuffer,a0
+			bsr	_PlaylistAddSingleFile
+
+.done			moveq	#0,d0
+			movem.l	(sp)+,a0/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistButtonPressedAddDir
+			;------------------------------------------------------------
+
+_PlaylistButtonAddDir
+			movem.l	a0/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			lea	vmp_FilenameBuffer,a0
+			bsr	_AskDir
+			tst.l	d0
+			beq.s	.done
+						
+			lea	vmp_FilenameBuffer,a0
+			bsr	_PlaylistAddSingleDir
+
+.done			moveq	#0,d0
+			movem.l	(sp)+,a0/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistAddSingleFile
+			;------------------------------------------------------------
+			; Input: a0 = path string pointer
+
+_PlaylistAddSingleFile
+			movem.l	d3-d7/a3-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+			move.l	a0,a4					; a4 = path
+
+			; 1. Verify it's an MP3 (ends with ".mp3" case insensitive)
+			movea.l	a4,a0
+.findEnd		tst.b	(a0)+
+			bne.s	.findEnd
+			subq.l	#5,a0					; back up to start of ".mp3"
+			cmpa.l	a4,a0
+			blt.w	.done					; path too short!
+
+			; Case insensitive check for ".mp3"
+			cmp.b	#'.',(a0)+
+			bne.w	.done
+			move.b	(a0)+,d0
+			cmp.b	#'m',d0
+			beq.s	.m_ok
+			cmp.b	#'M',d0
+			bne.w	.done
+.m_ok			move.b	(a0)+,d0
+			cmp.b	#'p',d0
+			beq.s	.p_ok
+			cmp.b	#'P',d0
+			bne.w	.done
+.p_ok			cmp.b	#'3',(a0)+
+			bne.w	.done
+
+			; 2. Allocate memory block for PlaylistEntry
+			movea.l	4.w,a6
+			move.l	#ple_SIZEOF,d0
+			move.l	#MEMF_PUBLIC|MEMF_CLEAR,d1
+			jsr	_LVOAllocVec(a6)
+			movea.l	d0,a3					; a3 = PlaylistEntry pointer
+			tst.l	d0
+			beq.w	.done
+
+			; 3. Copy full path to ple_Path
+			movea.l	a4,a0
+			lea	ple_Path(a3),a1
+.copyPath		move.b	(a0)+,(a1)+
+			bne.s	.copyPath
+
+			; 4. Extract filename from path for ple_Name
+			movea.l	a4,a0
+.scanEnd		tst.b	(a0)+
+			bne.s	.scanEnd
+			subq.l	#1,a0					; a0 points to null-terminator
+.scanBack		cmpa.l	a4,a0
+			beq.s	.foundStart
+			subq.l	#1,a0
+			cmp.b	#'/',(a0)
+			beq.s	.foundSlash
+			cmp.b	#':',(a0)
+			beq.s	.foundSlash
+			bra.s	.scanBack
+.foundSlash		addq.l	#1,a0					; skip slash
+.foundStart
+			lea	ple_Name(a3),a1
+.copyName		move.b	(a0)+,(a1)+
+			bne.s	.copyName
+
+			; 5. Insert into MUI List
+			movea.l	vmp_MUI_PlaylistList(a5),a2
+			DOMETHOD a2, #MUIM_List_InsertSingle, a3, #MUIV_List_Insert_Bottom
+
+			; 6. Increment track counter
+			addq.l	#1,vmp_PlaylistCount(a5)
+
+			; 7. Update status bar text
+			bsr	_PlaylistUpdateStatus
+
+.done			movem.l	(sp)+,d3-d7/a3-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistAddSingleDir
+			;------------------------------------------------------------
+			; Input: a0 = folder path string pointer
+
+_PlaylistAddSingleDir
+			movem.l	d2-d4/a2-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+			move.l	a0,a4					; a4 = folder path
+
+			; 1. Lock the directory
+			movea.l	vmp_DosBase(a5),a6
+			move.l	a4,d1
+			move.l	#ACCESS_READ,d2				; SHARED_LOCK = -2
+			LVO	Lock
+			move.l	d0,d4					; d4 = locked directory lock
+			beq.w	.done
+
+			; 2. Allocate FileInfoBlock
+			move.l	#DOS_FIB,d1
+			moveq	#0,d2					; tags = NULL
+			LVO	AllocDosObject
+			movea.l	d0,a3					; a3 = FileInfoBlock pointer
+			tst.l	d0
+			beq.s	.unlock
+
+			; 3. Examine the directory
+			move.l	d4,d1
+			move.l	a3,d2
+			LVO	Examine
+			tst.l	d0
+			beq.s	.freeFib
+
+.loopEntries		move.l	d4,d1
+			move.l	a3,d2
+			LVO	ExNext
+			tst.l	d0
+			beq.s	.freeFib				; End of directory or error
+
+			move.l	fib_DirEntryType(a3),d0
+			blt.s	.fileEntry
+			bgt.s	.dirEntry
+			bra.s	.loopEntries
+
+.fileEntry
+			; Copy folder path to stack buffer
+			suba.l	#256,sp
+			movea.l	sp,a2
+			movea.l	a4,a0
+			movea.l	a2,a1
+.copyPathLocal1		move.b	(a0)+,(a1)+
+			bne.s	.copyPathLocal1
+
+			move.l	a2,d1
+			lea	fib_FileName(a3),a0
+			move.l	a0,d2
+			move.l	#256,d3
+			LVO	AddPart
+			tst.l	d0
+			beq.s	.fileDone
+
+			movea.l	sp,a0
+			bsr	_PlaylistAddSingleFile
+
+.fileDone		adda.l	#256,sp
+			bra.s	.loopEntries
+
+.dirEntry
+			suba.l	#256,sp
+			movea.l	sp,a2
+
+			movea.l	a4,a0
+			movea.l	a2,a1
+.copyPathLocal2		move.b	(a0)+,(a1)+
+			bne.s	.copyPathLocal2
+
+			move.l	a2,d1
+			lea	fib_FileName(a3),a0
+			move.l	a0,d2
+			move.l	#256,d3
+			LVO	AddPart
+			tst.l	d0
+			beq.s	.dirDone
+
+			movea.l	a2,a0
+			bsr	_PlaylistAddSingleDir
+
+.dirDone		adda.l	#256,sp
+			bra.w	.loopEntries
+
+.freeFib		movea.l	vmp_DosBase(a5),a6
+			move.l	#DOS_FIB,d1
+			move.l	a3,d2
+			LVO	FreeDosObject
+
+.unlock			movea.l	vmp_DosBase(a5),a6
+			move.l	d4,d1
+			LVO	UnLock
+
+.done			movem.l	(sp)+,d2-d4/a2-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistButtonRemove
+			;------------------------------------------------------------
+
+_PlaylistButtonRemove
+			movem.l	d2-d3/a2-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			; 1. Get active entry index
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a2,a0				; BUGFIX: a0 must hold object for GetAttr
+			move.l	#MUIA_List_Active,d0
+			lea	vmp_TempVariable(a5),a1
+			LVO	GetAttr
+			move.l	vmp_TempVariable(a5),d2			; d2 = active index
+			cmp.l	#MUIV_List_Active_Off,d2
+			beq.s	.done
+
+			; 2. Retrieve PlaylistEntry pointer
+			lea	vmp_TempVariable(a5),a1
+			DOMETHOD a2, #MUIM_List_GetEntry, d2, a1
+			move.l	vmp_TempVariable(a5),a3			; a3 = PlaylistEntry pointer
+			tst.l	a3
+			beq.s	.done
+
+			; 3. Remove from list
+			DOMETHOD a2, #MUIM_List_Remove, d2
+
+			; 4. Free structural memory
+			movea.l	4.w,a6
+			movea.l	a3,a1
+			jsr	_LVOFreeVec(a6)
+
+			; 5. Decrement track counter
+			subq.l	#1,vmp_PlaylistCount(a5)
+			bpl.s	.countOk
+			move.l	#0,vmp_PlaylistCount(a5)
+.countOk
+			; 6. Update status bar
+			bsr	_PlaylistUpdateStatus
+
+.done			moveq	#0,d0
+			movem.l	(sp)+,d2-d3/a2-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistButtonClear
+			;------------------------------------------------------------
+
+_PlaylistButtonClear
+			movem.l	d2-d3/a2-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			; Stop playback if playing from playlist
+			cmp.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
+			bne.s	.doClear
+			bsr	_PausePlayer
+
+.doClear		movea.l	vmp_MUI_PlaylistList(a5),a2			; a2 = list object
+
+.loop			tst.l	vmp_PlaylistCount(a5)
+			beq.s	.finish
+
+			; Get the first entry (always at index 0)
+			lea	vmp_TempVariable(a5),a1
+			DOMETHOD a2, #MUIM_List_GetEntry, #0, a1
+			move.l	vmp_TempVariable(a5),a3			; a3 = entry pointer
+			tst.l	a3
+			beq.s	.finish
+
+			; Remove from list
+			DOMETHOD a2, #MUIM_List_Remove, #0
+
+			; Free memory
+			movea.l	4.w,a6
+			movea.l	a3,a1
+			jsr	_LVOFreeVec(a6)
+
+			subq.l	#1,vmp_PlaylistCount(a5)
+			bra.s	.loop
+
+.finish			move.l	#0,vmp_PlaylistCount(a5)
+			DOMETHOD a2, #MUIM_List_Clear
+
+			; Update status bar
+			bsr	_PlaylistUpdateStatus
+
+.done			moveq	#0,d0
+			movem.l	(sp)+,d2-d3/a2-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistShuffle
+			;------------------------------------------------------------
+
+_PlaylistShuffle
+			movem.l	a0-a1/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			eori.l	#1,vmp_PlaylistShuffle(a5)
+
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_PlaylistShuffle(a5),a0
+			tst.l	vmp_PlaylistShuffle(a5)
+			beq.s	.shuffleOff
+			lea	txt_PlaylistShuffleOn,a1
+			bra.s	.updateText
+.shuffleOff		lea	txt_PlaylistShuffleOff,a1
+.updateText		INITSTACKTAG
+			STACKREGTAG	a1, MUIA_Text_Contents
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			moveq	#0,d0
+			movem.l	(sp)+,a0-a1/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistLoop
+			;------------------------------------------------------------
+
+_PlaylistLoop
+			movem.l	a0-a1/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			move.l	vmp_PlaylistLoop(a5),d0
+			addq.l	#1,d0
+			cmp.l	#3,d0
+			blt.s	.stateOk
+			moveq	#0,d0
+.stateOk		move.l	d0,vmp_PlaylistLoop(a5)
+
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_PlaylistLoop(a5),a0
+			
+			cmp.l	#1,d0
+			beq.s	.loopTrack
+			cmp.l	#2,d0
+			beq.s	.loopAll
+			lea	txt_PlaylistLoopOff,a1
+			bra.s	.updateText
+.loopTrack		lea	txt_PlaylistLoopTrack,a1
+			bra.s	.updateText
+.loopAll		lea	txt_PlaylistLoopAll,a1
+
+.updateText		INITSTACKTAG
+			STACKREGTAG	a1, MUIA_Text_Contents
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			moveq	#0,d0
+			movem.l	(sp)+,a0-a1/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistButtonUp
+			;------------------------------------------------------------
+
+_PlaylistButtonUp
+			movem.l	d2-d3/a2-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a2,a0				; BUGFIX: a0 must hold object for GetAttr
+			move.l	#MUIA_List_Active,d0
+			lea	vmp_TempVariable(a5),a1
+			LVO	GetAttr
+			move.l	vmp_TempVariable(a5),d2
+			cmp.l	#MUIV_List_Active_Off,d2
+			beq.s	.done
+			tst.l	d2
+			beq.s	.done
+
+			move.l	d2,d3
+			subq.l	#1,d3
+			DOMETHOD a2, #MUIM_List_Exchange, d2, d3
+
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a2,a0
+			INITSTACKTAG
+			STACKREGTAG	d3, MUIA_List_Active
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+.done			moveq	#0,d0
+			movem.l	(sp)+,d2-d3/a2-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistButtonDown
+			;------------------------------------------------------------
+
+_PlaylistButtonDown
+			movem.l	d2-d3/a2-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a2,a0				; BUGFIX: a0 must hold object for GetAttr
+			move.l	#MUIA_List_Active,d0
+			lea	vmp_TempVariable(a5),a1
+			LVO	GetAttr
+			move.l	vmp_TempVariable(a5),d2
+			cmp.l	#MUIV_List_Active_Off,d2
+			beq.s	.done
+
+			move.l	vmp_PlaylistCount(a5),d3
+			subq.l	#1,d3
+			cmp.l	d3,d2
+			bge.s	.done
+
+			move.l	d2,d3
+			addq.l	#1,d3
+			DOMETHOD a2, #MUIM_List_Exchange, d2, d3
+
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a2,a0
+			INITSTACKTAG
+			STACKREGTAG	d3, MUIA_List_Active
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+.done			moveq	#0,d0
+			movem.l	(sp)+,d2-d3/a2-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistGotAppMessage
+			;------------------------------------------------------------
+
+_PlaylistGotAppMessage
+			movem.l	d2-d4/a2-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			movea.l	(a1),a1						; a1 = AppMessage
+			tst.l	a1
+			beq.s	.done
+
+			tst.l	am_NumArgs(a1)
+			beq.s	.done
+
+			move.l	am_NumArgs(a1),d4			; d4 = args count
+			movea.l	am_ArgList(a1),a2			; a2 = WBArg pointer
+
+.loopArgs		movea.l	vmp_DosBase(a5),a6
+			move.l	wa_Lock(a2),d1
+			move.l	#vmp_FilenameBuffer,d2
+			move.l	#255,d3
+			LVO	NameFromLock
+			tst.l	d0
+			beq.s	.nextArg
+
+			move.l	#vmp_FilenameBuffer,d1
+			move.l	wa_Name(a2),d2
+			move.l	#255,d3
+			LVO	AddPart
+			tst.l	d0
+			beq.s	.nextArg
+
+			move.l	#vmp_FilenameBuffer,d1
+			move.l	#ACCESS_READ,d2
+			LVO	Lock
+			move.l	d0,d3
+			beq.s	.nextArg
+
+			move.l	#DOS_FIB,d1
+			moveq	#0,d2
+			LVO	AllocDosObject
+			movea.l	d0,a3
+			tst.l	d0
+			beq.s	.unlockArg
+
+			move.l	d3,d1
+			move.l	a3,d2
+			LVO	Examine
+			tst.l	d0
+			beq.s	.freeFibArg
+
+			move.l	fib_DirEntryType(a3),d0
+			blt.s	.isFileArg
+			bgt.s	.isDirArg
+			bra.s	.freeFibArg
+
+.isFileArg		lea	vmp_FilenameBuffer,a0
+			bsr	_PlaylistAddSingleFile
+			bra.s	.freeFibArg
+
+.isDirArg		lea	vmp_FilenameBuffer,a0
+			bsr	_PlaylistAddSingleDir
+
+.freeFibArg		movea.l	vmp_DosBase(a5),a6
+			move.l	#DOS_FIB,d1
+			move.l	a3,d2
+			LVO	FreeDosObject
+
+.unlockArg		movea.l	vmp_DosBase(a5),a6
+			move.l	d3,d1
+			LVO	UnLock
+
+.nextArg		adda.l	#8,a2					; WBArg is 8 bytes
+			subq.l	#1,d4
+			bne.s	.loopArgs
+
+.done			moveq	#0,d0
+			movem.l	(sp)+,d2-d4/a2-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _AskDir
+			;------------------------------------------------------------
+
+_AskDir			movem.l	d1/d5/a0-a3/a6,-(sp)
+
+			moveq	#0,d5
+			movea.l	a0,a3							; a3 = buffer
+
+			movea.l	vmp_ASLBase(a5),a6
+			move.l	#ASL_FileRequest,d0
+			suba.l	a0,a0
+			LVO	AllocAslRequest
+			movea.l	d0,a2							; a2 = requester
+			beq.s	.error
+	
+			suba.l	#24,sp
+			movea.l	sp,a1
+			
+			move.l	#ASLFR_DrawersOnly,(a1)
+			move.l	#TRUE,4(a1)
+			
+			move.l	#TAG_DONE,8(a1)
+			move.l	#0,12(a1)
+			
+			movea.l	a2,a0
+			LVO	AslRequest
+			adda.l	#24,sp
+			
+			move.l	d0,d5
+			beq.s	.canceled
+			
+			movea.l	fr_Drawer(a2),a0
+			cmp.b	#0,(a0)
+			beq.s	.pathDone
+
+.pathLoop		move.b	(a0)+,d0
+			move.b	d0,(a3)+
+			cmp.b	#0,d0
+			bne.s	.pathLoop
+			
+			suba.l	#1,a3
+			cmp.b	#"/",-1(a3)
+			beq.s	.pathDone
+			cmp.b	#":",-1(a3)
+			beq.s	.pathDone
+			move.b	#0,(a3)
+
+.pathDone
+.canceled		movea.l	a2,a0
+			LVO	FreeAslRequest
+
+.error			move.l	d5,d0
+			movem.l	(sp)+,d1/d5/a0-a3/a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistListDoubleclick
+			;------------------------------------------------------------
+
+_PlaylistListDoubleclick
+			movem.l	a5,-(sp)
+			movea.l	vmp_StructPointer,a5
+			bsr	_PlaylistClicked
+			movem.l	(sp)+,a5
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistClicked
+			;------------------------------------------------------------
+
+_PlaylistClicked	movem.l	a0-a1/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			; 1. Get active entry index in playlist
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_PlaylistList(a5),a0
+			move.l	#MUIA_List_Active,d0
+			lea	vmp_PlayingIndex(a5),a1
+			LVO	GetAttr
+			cmp.l	#MUIV_List_Active_Off,vmp_PlayingIndex(a5)
+			beq.s	.done
+
+			; 2. Retrieve PlaylistEntry pointer
+			lea	vmp_TempVariable(a5),a1
+			DOMETHOD	vmp_MUI_PlaylistList(a5), #MUIM_List_GetEntry, vmp_PlayingIndex(a5), a1
+			move.l	vmp_TempVariable(a5),a0
+			tst.l	a0
+			beq.s	.done
+
+			; 3. Format name on status text
+			move.l	vmp_TempVariable(a5),a1
+			movea.l	vmp_MUI_MainWdwStatusText(a5),a0
+			INITSTACKTAG
+			STACKREGTAG	a1, MUIA_Text_Contents
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			; 4. Set playing flag
+			move.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
+
+			; 5. Load and play MP3
+			bsr	_PausePlayer
+			move.l	vmp_TempVariable(a5),a0
+			lea	ple_Path(a0),a0
 			bsr	_NewMP3
 			tst.l	d0
 			beq.s	.done
 			bsr	_ResumePlayer
 
 .done			moveq	#0,d0
-			movem.l	(sp)+,a0/a5-a6
+			movem.l	(sp)+,a0-a1/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistUpdateStatus
+			;------------------------------------------------------------
+
+_PlaylistUpdateStatus
+			movem.l	d0-d2/a0-a2/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			lea	vmp_PlaylistStatusBuf,a0
+			move.b	#'T',(a0)+
+			move.b	#'r',(a0)+
+			move.b	#'a',(a0)+
+			move.b	#'c',(a0)+
+			move.b	#'s',(a0)+
+			move.b	#':',(a0)+
+			move.b	#' ',(a0)+
+
+			move.l	vmp_PlaylistCount(a5),d0
+			bsr	_IntegerToString
+
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_PlaylistStatusText(a5),a0
+			INITSTACKTAG
+			STACKADRTAG	vmp_PlaylistStatusBuf, MUIA_Text_Contents
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			movem.l	(sp)+,d0-d2/a0-a2/a5-a6
+			rts
+
+_IntegerToString	movem.l	d3/a1,-(sp)
+			move.l	a0,a1
+			tst.l	d0
+			bne.s	.nonZero
+			move.b	#'0',(a1)+
+			bra.s	.finish
+.nonZero		moveq	#0,d3
+.loop			tst.l	d0
+			beq.s	.pop
+			divu.w	#10,d0
+			swap	d0
+			move.w	d0,d1
+			addi.b	#'0',d1
+			move.w	d1,-(sp)
+			addq.l	#1,d3
+			clr.w	d0
+			swap	d0
+			ext.l	d0
+			bra.s	.loop
+.pop			move.w	(sp)+,d1
+			move.b	d1,(a1)+
+			subq.l	#1,d3
+			bne.s	.pop
+.finish			move.b	#0,(a1)
+			movem.l	(sp)+,d3/a1
 			rts
 
 
@@ -1922,10 +2675,20 @@ txt_DirlistParent		dc.b	"Parent",0
 vmp_FilePattern			dc.b	"#?.mp3",0
 vmp_FilePatternToken		ds.b	32
 
-				; Playlist window
+								; Playlist window
 txt_PlaylistWindowTitle		dc.b	"Playlist",0
 txt_PlaylistAddFile		dc.b	"Add file",0
 txt_PlaylistAddDir		dc.b	"Add directory",0
+txt_PlaylistRemove		dc.b	"Remove",0
+txt_PlaylistClear		dc.b	"Clear",0
+txt_PlaylistUp			dc.b	"Move Up",0
+txt_PlaylistDown		dc.b	"Move Down",0
+txt_PlaylistShuffleOff		dc.b	"Shuffle: Off",0
+txt_PlaylistShuffleOn		dc.b	"Shuffle: On",0
+txt_PlaylistLoopOff		dc.b	"Loop: Off",0
+txt_PlaylistLoopTrack		dc.b	"Loop: Track",0
+txt_PlaylistLoopAll		dc.b	"Loop: Playlist",0
+txt_PlaylistStatusEmpty		dc.b	"Tracks: 0",0
 
 				; Prefs window
 txt_SettingsWindowTitle		dc.b	"Settings",0
@@ -1936,7 +2699,7 @@ txt_SettingsImagePath		dc.b	"Path to Tapedeck buttons",0
 				; About window
 txt_AboutWindowTitle		dc.b	"About VaMP3",0
 txt_AboutLabel			dc.b	27,"b"							; bold style
-				dc.b	27,"c","VaMP3 v",VAMP3_VERSION+"0",".",VAMP3_REVISION+"0"," Copyright © 2026 Bedroomcoders.com",10,10
+				dc.b	27,"c","VaMP3 v",VAMP3_VERSION+"0",".",VAMP3_REVISION+"0"," Copyright ï¿½ 2026 Bedroomcoders.com",10,10
 				dc.b	27,"n"							; normal style
 				dc.b	27,"c","68080 assembly by Tjomp",10
 				dc.b	27,"c","Graphics by HANSolo",10,10
@@ -2042,6 +2805,42 @@ vmp_Hook_PlaylistButtonAddFile	ds.b	MLN_SIZE
 				dc.l	_PlaylistButtonAddFile
 				dc.l	0,0
 
+vmp_Hook_PlaylistButtonAddDir	ds.b	MLN_SIZE
+				dc.l	_PlaylistButtonAddDir
+				dc.l	0,0
+
+vmp_Hook_PlaylistButtonRemove	ds.b	MLN_SIZE
+				dc.l	_PlaylistButtonRemove
+				dc.l	0,0
+
+vmp_Hook_PlaylistButtonClear	ds.b	MLN_SIZE
+				dc.l	_PlaylistButtonClear
+				dc.l	0,0
+
+vmp_Hook_PlaylistButtonUp	ds.b	MLN_SIZE
+				dc.l	_PlaylistButtonUp
+				dc.l	0,0
+
+vmp_Hook_PlaylistButtonDown	ds.b	MLN_SIZE
+				dc.l	_PlaylistButtonDown
+				dc.l	0,0
+
+vmp_Hook_PlaylistShuffle	ds.b	MLN_SIZE
+				dc.l	_PlaylistShuffle
+				dc.l	0,0
+
+vmp_Hook_PlaylistLoop		ds.b	MLN_SIZE
+				dc.l	_PlaylistLoop
+				dc.l	0,0
+
+vmp_Hook_PlaylistAppMessage	ds.b	MLN_SIZE
+				dc.l	_PlaylistGotAppMessage
+				dc.l	0,0
+
+vmp_Hook_PlaylistListDoubleclick ds.b	MLN_SIZE
+				dc.l	_PlaylistListDoubleclick
+				dc.l	0,0
+
 				; Settings window hooks
 vmp_Hook_SettingsButtonClose	ds.b	MLN_SIZE
 				dc.l	_SettingsButtonClose
@@ -2089,4 +2888,11 @@ vmp_StatusPlayingTxt	dc.b	$1b,"c","Playing",0
 vmp_StatusOpenErrorTxt	dc.b	$1b,"c","Error opening file.",0
 vmp_StatusDecodingTxt	dc.b	$1b,"c","Decoding mp3.",0
 vmp_StatusPausedTxt	dc.b	$1b,"c","Paused",0
+
+			;------------------------------------------------------------
+			; Local Status string buffer
+			;------------------------------------------------------------
+
+			even
+vmp_PlaylistStatusBuf	ds.b	32
 

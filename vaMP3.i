@@ -80,3 +80,10 @@ VMP_SETTINGS_DEFAULTMP3FOLDERID	equ	2
 VMP_MAIN_VOLUMEID		equ	3
 VMP_MAIN_POSITIONID		equ	4
 
+	; Playlist entry structure
+	STRUCTURE PlaylistEntry,0
+		STRUCT ple_Name,128		; Null-terminated filename/title (displayed directly by MUI List)
+		STRUCT ple_Path,256		; Null-terminated absolute path (used for loading/playback)
+		LABEL ple_SIZEOF
+
+

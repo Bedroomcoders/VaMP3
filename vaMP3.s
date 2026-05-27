@@ -98,6 +98,18 @@
 			APTR	vmp_MUI_PlaylistButtonAddFile
 			APTR	vmp_MUI_PlaylistButtonAddDir
 			APTR	vmp_MUI_PlaylistHGroup1
+			APTR	vmp_MUI_PlaylistButtonRemove
+			APTR	vmp_MUI_PlaylistButtonClear
+			APTR	vmp_MUI_PlaylistButtonUp
+			APTR	vmp_MUI_PlaylistButtonDown
+			APTR	vmp_MUI_PlaylistStatusText
+			APTR	vmp_MUI_PlaylistShuffle
+			APTR	vmp_MUI_PlaylistLoop
+			APTR	vmp_MUI_PlaylistHGroup2
+			APTR	vmp_MUI_PlaylistHGroup3
+			LONG	vmp_PlaylistShuffle
+			LONG	vmp_PlaylistLoop
+			LONG	vmp_PlaylistCount
 			APTR	vmp_MUI_SettingsWindow
 			APTR	vmp_MUI_SettingsHGroup1
 			APTR	vmp_MUI_SettingsHGroup2
@@ -451,6 +463,9 @@ _Init			move.l	4.w,a6
 
 			; EventHandler is the mainloop
 			bsr	_EventHandler
+
+			; Free playlist memory structures to prevent leaks at exit
+			bsr	_PlaylistButtonClear
 
 
 
