@@ -1,4 +1,4 @@
-**	$VER: vaMP3.s v1.0 release (April 2026)
+**	File: vaMP3.s 
 **	Platgorm: Apollo Vampire with MUI
 **	Assemble command:
 **				vasmm68k_mot vaMP3.s -Fhunkexe -no-opt
@@ -797,6 +797,9 @@ vmp_DosName		dc.b	"dos.library",0
 vmp_DatatypesName	dc.b	"datatypes.library",0
 vmp_TimerDeviceName	dc.b	"timer.device",0
 vmp_UniquePortName	dc.b	"VAMP3.1",0
+
+vmp_VersionString	dc.b	"$VER: VaMP3 v",VAMP3_VERSION+"0",".",VAMP3_REVISION+"0"," Copyright © 2026 Bedroomcoders.com"
+
 			even
 vmp_TimeBuffer		ds.b	32
 vmp_NameBuffer		ds.b	128

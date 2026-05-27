@@ -134,14 +134,6 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			movea.l	vmp_MUIBase(a5),a6
 			moveq	#1,d5
 			
-		;	CREATEMUIBUTTON	txt_MainWdwPlaylist, 112			; Shortcut "p"
-		;	move.l	d0,vmp_MUI_MainWdwButtonPlaylist(a5)			; Create Playlist Button
-		;	beq.w	.error
-
-		;	CREATEMUIBUTTON	txt_MainWdwDirlist, 100				; Shortcut "d"
-		;	move.l	d0,vmp_MUI_MainWdwButtonDirlist(a5)			; Create Dirlist Button
-		;	beq.w	.error
-
 			move.l	vmp_ImgBuffer_Stop(a5),d0
 			move.l	vmp_ImgWidth_Stop(a5),d1
 			move.l	vmp_ImgHeight_Stop(a5),d2
@@ -160,14 +152,14 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	vmp_ImgBuffer_Next(a5),d0
 			move.l	vmp_ImgWidth_Next(a5),d1
 			move.l	vmp_ImgHeight_Next(a5),d2
-			CREATEMUICUSTOMBUTTON	d0,d1,d2
+			CREATEMUICUSTOMBUTTON	d0,d1,d2,120				; Shortcut "x"
 			move.l	d0,vmp_MUI_MainWdwButtonNext(a5)			; Create Next Button
 			beq	.error
 
 			move.l	vmp_ImgBuffer_Prev(a5),d0
 			move.l	vmp_ImgWidth_Prev(a5),d1
 			move.l	vmp_ImgHeight_Prev(a5),d2
-			CREATEMUICUSTOMBUTTON	d0,d1,d2
+			CREATEMUICUSTOMBUTTON	d0,d1,d2,122				; Shortcut "z"
 			move.l	d0,vmp_MUI_MainWdwButtonPrevious(a5)			; Create Previous Button
 			beq	.error
 
@@ -202,7 +194,6 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			STACKVALTAG	0,MUIA_Numeric_Value
 			STACKVALTAG	VMP_MAIN_POSITIONID, MUIA_ObjectID
 			STACKVALTAG	TRUE,MUIA_Slider_Quiet
-			STACKVALTAG	MUIV_Frame_None, MUIA_Frame
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_MainWdwSliderPosition(a5)
 			beq.w	.error
@@ -217,7 +208,6 @@ _BuildMainWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			INITSTACKTAG
 			STACKVALTAG	VMP_AUDIO_VOLUME,MUIA_Numeric_Default
 			STACKVALTAG	VMP_MAIN_VOLUMEID, MUIA_ObjectID
-			STACKVALTAG	MUIV_Frame_None, MUIA_Frame
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
 			move.l	d0,vmp_MUI_MainWdwSliderVolume(a5)				; Create Volume slider
 			beq.w	.error
@@ -589,7 +579,6 @@ _BuildAboutWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			CREATEMUILABEL	txt_AboutLabel					; Copyright label
 			move.l	d0,vmp_MUI_AboutLabel(a5)
 			beq.w	.error
-
 
 			move.l	#vmp_Logo,d0
 			move.l	#206,d1
@@ -1922,7 +1911,7 @@ _SetStatus		movem.l	d0-d2/a0-a1/a6,-(sp)
 			section data,Data
 
 				; Main window
-txt_MainWindowTitle		dc.b	"VaMP3 v0.11",0
+txt_MainWindowTitle		dc.b	"VaMP3",0
 txt_MainWdwPlaylist		dc.b	"Playlist",0
 txt_MainWdwDirlist		dc.b	"Dirlist",0
 
@@ -1947,7 +1936,7 @@ txt_SettingsImagePath		dc.b	"Path to Tapedeck buttons",0
 				; About window
 txt_AboutWindowTitle		dc.b	"About VaMP3",0
 txt_AboutLabel			dc.b	27,"b"							; bold style
-				dc.b	27,"c","(C) 2026 Bedroomcoders.com",10,10
+				dc.b	27,"c","VaMP3 v",VAMP3_VERSION+"0",".",VAMP3_REVISION+"0"," Copyright © 2026 Bedroomcoders.com",10,10
 				dc.b	27,"n"							; normal style
 				dc.b	27,"c","68080 assembly by Tjomp",10
 				dc.b	27,"c","Graphics by HANSolo",10,10

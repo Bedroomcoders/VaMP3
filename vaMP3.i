@@ -35,6 +35,10 @@ PMODE_V43		equ	$1
 
 
 	; Application specific constants
+
+VAMP3_VERSION			equ	0
+VAMP3_REVISION			equ	2
+
 VMP_MAINWINDOWID		equ	1
 VMP_MAINWINDOWWIDTH		equ	500
 VMP_MAINWINDOWHEIGHT		equ	500
