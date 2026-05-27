@@ -464,6 +464,16 @@ _Init			move.l	4.w,a6
 			; EventHandler is the mainloop
 			bsr	_EventHandler
 
+			; Close Playlist window in advance to speed up list clearing
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_PlaylistWindow(a5),a0
+			tst.l	a0
+			beq.s	.skipClosePlaylist
+			INITSTACKTAG
+			STACKVALTAG	0,MUIA_Window_Open
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+.skipClosePlaylist
+
 			; Free playlist memory structures to prevent leaks at exit
 			bsr	_PlaylistButtonClear
 

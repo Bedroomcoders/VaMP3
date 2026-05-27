@@ -916,8 +916,59 @@ _MainWdwButtonNext
 			bra.s	.findNext
 
 .playlist		movea.l	vmp_MUI_PlaylistList(a5),a4
-			; lea	_PlaylistPressedPlaylist,a3				; TODO: Create this routine!
-			bra.w	.done
+			lea	_PlaylistClicked,a3
+
+			; Check Shuffle Mode
+			tst.l	vmp_PlaylistShuffle(a5)
+			bne.s	.shuffleNext
+
+			; Not Shuffle. Normal or Loop.
+			move.l	vmp_PlayingIndex(a5),d2
+			addq.l	#1,d2
+
+			; Compare with PlaylistCount
+			cmp.l	vmp_PlaylistCount(a5),d2
+			blt.s	.playPlaylistNext
+
+			; We hit the end of the playlist! Check Loop Mode (2 = Loop All)
+			cmp.l	#2,vmp_PlaylistLoop(a5)
+			beq.s	.wrapFirstNext
+
+			; Loop is Off or Track. Stop and go to IDLE.
+			bra.s	.stopPlaylistNext
+
+.wrapFirstNext	moveq	#0,d2
+.playPlaylistNext
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a4,a0
+			INITSTACKTAG
+			STACKREGTAG	d2, MUIA_List_Active
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+			jsr	(a3)
+			bra.s	.done
+
+.shuffleNext	move.l	vmp_PlaylistCount(a5),d3
+			cmp.l	#1,d3
+			ble.s	.wrapFirstNext
+
+			move.w	$dff006,d0						; Get beam position
+			mulu.w	#109,d0
+			add.w	#221,d0
+			and.l	#$7fff,d0
+			divu.w	d3,d0
+			swap	d0
+			moveq	#0,d2
+			move.w	d0,d2
+			bra.s	.playPlaylistNext
+
+.stopPlaylistNext
+			move.l	#0,vmp_Playing(a5)
+			move.l	#0,vmp_FramesToDecode(a5)
+			moveq	#VMP_STATUS_IDLE,d0
+			bsr	_SetStatus
+			moveq	#VMP_AUDIO_CHANNEL,d0
+			bsr	_StopAudio
+			bra.s	.done
 
 .findNext		move.l	vmp_PlayingIndex(a5),d2
 
@@ -971,8 +1022,54 @@ _MainWdwButtonPrevious
 			bra.s	.findPrev
 
 .playlist		movea.l	vmp_MUI_PlaylistList(a5),a4
-			; lea	_PlaylistPressedPlaylist,a3				; TODO: Create this routine!
-			bra.w	.done
+			lea	_PlaylistClicked,a3
+
+			; Check Shuffle Mode
+			tst.l	vmp_PlaylistShuffle(a5)
+			bne.s	.shufflePrev
+
+			; Not Shuffle. Normal or Loop.
+			move.l	vmp_PlayingIndex(a5),d2
+			subq.l	#1,d2
+			bpl.s	.playPlaylistPrev
+
+			; We went below 0! Check Loop Mode (2 = Loop All)
+			cmp.l	#2,vmp_PlaylistLoop(a5)
+			beq.s	.wrapLastPrev
+
+			; Loop is Off or Track. Just stay at 0.
+			moveq	#0,d2
+			bra.s	.playPlaylistPrev
+
+.wrapLastPrev	move.l	vmp_PlaylistCount(a5),d2
+			subq.l	#1,d2
+			bpl.s	.playPlaylistPrev
+			moveq	#0,d2
+.playPlaylistPrev
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	a4,a0
+			INITSTACKTAG
+			STACKREGTAG	d2, MUIA_List_Active
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+			jsr	(a3)
+			bra.s	.done
+
+.shufflePrev	move.l	vmp_PlaylistCount(a5),d3
+			cmp.l	#1,d3
+			ble.s	.wrapFirstPrev
+
+			move.w	$dff006,d0
+			mulu.w	#109,d0
+			add.w	#221,d0
+			and.l	#$7fff,d0
+			divu.w	d3,d0
+			swap	d0
+			moveq	#0,d2
+			move.w	d0,d2
+			bra.s	.playPlaylistPrev
+
+.wrapFirstPrev	moveq	#0,d2
+			bra.s	.playPlaylistPrev
 
 .findPrev		move.l	vmp_PlayingIndex(a5),d2
 
@@ -1060,6 +1157,7 @@ _MainWdwSliderVolumeChanged
 			movea.l	vmp_StructPointer,a5
 
 			move.l	(a1),d1						; Volume slider value
+			move.l	d1,vmp_Volume(a5)			; Store in our structure so it stays in sync!
 
 			move.l	#VMP_AUDIO_CHANNEL,d0
 			bsr	_SetVolume
@@ -1536,10 +1634,11 @@ _PlaylistAddSingleDir
 _PlaylistButtonRemove
 			movem.l	d2-d3/a2-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
+			movea.l	vmp_MUI_PlaylistList(a5),a2
 
 			; 1. Get active entry index
 			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	a2,a0				; BUGFIX: a0 must hold object for GetAttr
+			movea.l	a2,a0				; Now a0 holds the List object
 			move.l	#MUIA_List_Active,d0
 			lea	vmp_TempVariable(a5),a1
 			LVO	GetAttr
@@ -1696,9 +1795,10 @@ _PlaylistLoop
 _PlaylistButtonUp
 			movem.l	d2-d3/a2-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
+			movea.l	vmp_MUI_PlaylistList(a5),a2
 
 			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	a2,a0				; BUGFIX: a0 must hold object for GetAttr
+			movea.l	a2,a0				; Now a0 holds the List object
 			move.l	#MUIA_List_Active,d0
 			lea	vmp_TempVariable(a5),a1
 			LVO	GetAttr
@@ -1731,9 +1831,10 @@ _PlaylistButtonUp
 _PlaylistButtonDown
 			movem.l	d2-d3/a2-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
+			movea.l	vmp_MUI_PlaylistList(a5),a2
 
 			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	a2,a0				; BUGFIX: a0 must hold object for GetAttr
+			movea.l	a2,a0				; Now a0 holds the List object
 			move.l	#MUIA_List_Active,d0
 			lea	vmp_TempVariable(a5),a1
 			LVO	GetAttr

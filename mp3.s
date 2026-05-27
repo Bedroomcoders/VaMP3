@@ -165,8 +165,16 @@ _PlayMP3		movem.l	d0-d2/a0-a1,-(sp)
 			lea	vmp_PCM_LengthArray,a1
 			move.l	(a1,d2.w),d0
 
-			moveq	#VMP_AUDIO_CHANNEL,d1
-			move.l	#$ffff,d2
+			; Scale vmp_Volume(a5) from 0-100 to 0-255 for both channels
+			move.l	vmp_Volume(a5),d2
+			mulu	#255,d2
+			divu	#100,d2
+			move.b	d2,d1
+			lsl	#8,d1
+			move.b	d2,d1
+			move.l	d1,d2					; d2 = left/right volume word
+
+			moveq	#VMP_AUDIO_CHANNEL,d1	; Restore channel in d1
 			bsr	_PlayAudio
 			
 			movem.l	(sp)+,d0-d2/a0-a1
@@ -258,14 +266,34 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 			bra.s	.checkFull
 			
 .eof
-			; Genuine EOF! Play next song.
+			; Genuine EOF! Play next song or repeat.
 			move.l	#0,vmp_Playing(a5)
 			move.l	#0,vmp_FramesToDecode(a5)
 			move.l	#VMP_STATUS_IDLE,d0
 			bsr	_SetStatus
 			moveq	#VMP_AUDIO_CHANNEL,d0
 			bsr	_StopAudio
-			bsr	_MainWdwButtonNext					;Play next song
+
+			; Check Loop Mode: 1 = Loop Track
+			cmp.l	#1,vmp_PlaylistLoop(a5)
+			bne.s	.nextSong
+
+			; Loop Track active! Restart current song depending on PlayingFrom
+			cmp.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
+			beq.s	.repeatPlaylist
+			cmp.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
+			beq.s	.repeatDirlist
+			bra.s	.nextSong
+
+.repeatPlaylist
+			bsr	_PlaylistClicked
+			bra.s	.exit
+
+.repeatDirlist
+			bsr	_DirlistClicked
+			bra.s	.exit
+
+.nextSong	bsr	_MainWdwButtonNext					; Play next song
 			bra.s	.exit
     
 .decoded	add.l	d0,vmp_DecodedSamples(a5)
