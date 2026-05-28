@@ -1,13 +1,13 @@
 Known issues:
- - Playlist have GUI but it is not implemented
  
   
 Planned:
- - Drag&Drop to build playlist
  - AREXX interface?
 
  
 Changes:
+ - Load and save playlist in menu for backups and swapping out current playlist
+ - Playlist supporting drag&drop + auto save state
  - New layout. Dirlist and Playlist is now Image buttons
  - Position slider to show song progress and to move forward/back in playing song
  - Song info on main window

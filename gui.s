@@ -112,6 +112,10 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			STACKVALTAG	1,MUIA_Window_Open
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
+			; Auto-load playlist from PROGDIR:vaMP3.playlist
+			lea	txt_DefaultPlaylistPath,a0
+			bsr	_LoadPlaylistFromFile
+
 
 			moveq	#0,d5
 
@@ -689,6 +693,7 @@ _BuildMenu		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			lea	MUIC_Menuitem,a0
 			INITSTACKTAG
 			STACKADRTAG	txt_Menu_FileLoadPL, MUIA_Menuitem_Title
+			STACKADRTAG	txt_Shortcut_LoadPL,MUIA_Menuitem_Shortcut
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1						; Load playlist
 			move.l	d0,vmp_MUI_MenuFileLoadPL(a5)
 			beq	.error
@@ -696,6 +701,7 @@ _BuildMenu		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			lea	MUIC_Menuitem,a0
 			INITSTACKTAG
 			STACKADRTAG	txt_Menu_FileSavePL, MUIA_Menuitem_Title
+			STACKADRTAG	txt_Shortcut_SavePL,MUIA_Menuitem_Shortcut
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1						; Save Playlist
 			move.l	d0,vmp_MUI_MenuFileSavePL(a5)
 			beq	.error
@@ -825,6 +831,8 @@ _CreateHooks		movem.l	a0-a2/a6,-(sp)
 
 			DOMETHOD vmp_MUI_MenuFileQuit(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, #MUIV_Notify_Application, #2, #MUIM_Application_ReturnID, #MUIV_Application_ReturnID_Quit
 			DOMETHOD vmp_MUI_MenuFileAbout(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MenuAbout
+			DOMETHOD vmp_MUI_MenuFileLoadPL(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_PlaylistButtonLoadPL
+			DOMETHOD vmp_MUI_MenuFileSavePL(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_PlaylistButtonSavePL
 			DOMETHOD vmp_MUI_MenuPrefsSettings(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, #MUIV_Notify_Self, #2, #MUIM_CallHook, #vmp_Hook_MenuSettings
 			DOMETHOD vmp_MUI_MenuPrefsMUISettings(a5), #MUIM_Notify, #MUIA_Menuitem_Trigger, #MUIV_EveryTime, vmp_MUI_Application(a5), #1, #MUIM_Application_OpenConfigWindow
 
@@ -1758,6 +1766,227 @@ _PlaylistButtonClear
 			rts
 
 
+			;------------------------------------------------------------
+			; _SavePlaylistToFile
+			;------------------------------------------------------------
+			; Input: a0 = pointer to path string
+			;------------------------------------------------------------
+_SavePlaylistToFile	movem.l	d2-d7/a2-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+			move.l	a0,a4					; a4 = path string
+
+			; 1. Open the file for writing
+			movea.l	vmp_DosBase(a5),a6
+			move.l	a4,d1					; filename
+			move.l	#MODE_NEWFILE,d2
+			LVO	Open
+			move.l	d0,d7					; d7 = file handle
+			beq.w	.doneSave				; open failed
+
+			; 2. Iterate list entries
+			movea.l	vmp_MUI_PlaylistList(a5),a2		; a2 = list object
+			moveq	#0,d5					; d5 = index = 0
+
+.saveLoop		cmp.l	vmp_PlaylistCount(a5),d5
+			bhs.s	.closeSaveFile
+
+			lea	vmp_TempVariable(a5),a1
+			DOMETHOD a2, #MUIM_List_GetEntry, d5, a1
+			move.l	vmp_TempVariable(a5),a3			; a3 = PlaylistEntry pointer
+			tst.l	a3
+			beq.s	.nextSave
+
+			; 3. Write ple_Path
+			lea	ple_Path(a3),a0				; a0 = path pointer
+			
+			; find length of ple_Path
+			movea.l	a0,a1
+			moveq	#0,d3					; d3 = length
+.lenLoop		tst.b	(a1)+
+			bne.s	.addLen
+			bra.s	.lenDone
+.addLen			addq.l	#1,d3
+			bra.s	.lenLoop
+.lenDone		tst.l	d3
+			beq.s	.nextSave
+
+			; Write track path
+			movea.l	vmp_DosBase(a5),a6
+			move.l	d7,d1					; file handle
+			move.l	a0,d2					; buffer
+			LVO	Write
+
+			; Write newline character (LF)
+			move.l	d7,d1
+			pea	.newline(pc)
+			move.l	(sp)+,d2
+			moveq	#1,d3
+			LVO	Write
+
+.nextSave		addq.l	#1,d5
+			bra.s	.saveLoop
+
+.closeSaveFile		movea.l	vmp_DosBase(a5),a6
+			move.l	d7,d1
+			LVO	Close
+
+.doneSave		movem.l	(sp)+,d2-d7/a2-a6
+			rts
+
+.newline		dc.b	10,0
+			even
+
+
+
+			;------------------------------------------------------------
+			; _LoadPlaylistFromFile
+			;------------------------------------------------------------
+			; Input: a0 = pointer to path string
+			;------------------------------------------------------------
+_LoadPlaylistFromFile	movem.l	d2-d7/a2-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+			move.l	a0,a4					; a4 = path string
+
+			; 1. Open the file for reading
+			movea.l	vmp_DosBase(a5),a6
+			move.l	a4,d1					; filename
+			move.l	#MODE_OLDFILE,d2
+			LVO	Open
+			move.l	d0,d7					; d7 = file handle
+			beq.w	.doneLoad				; open failed
+
+			; 2. Clear the current playlist first
+			bsr	_PlaylistButtonClear
+
+			; 3. Allocate a 512-byte buffer on the stack for reading lines
+			suba.l	#512,sp
+			movea.l	sp,a3					; a3 = line buffer
+
+.readLoop		movea.l	vmp_DosBase(a5),a6
+			move.l	d7,d1					; file handle
+			move.l	a3,d2					; buffer
+			move.l	#512,d3					; max size
+			LVO	FGets
+			tst.l	d0
+			beq.s	.eof					; EOF or error
+
+			; 4. Strip trailing CR/LF
+			movea.l	a3,a0
+.findEndLoad		tst.b	(a0)+
+			bne.s	.findEndLoad
+			subq.l	#2,a0					; back up to char before null
+
+			; check LF
+			cmpa.l	a3,a0
+			blt.s	.checkEmpty
+			cmp.b	#10,(a0)
+			bne.s	.checkCR
+			move.b	#0,(a0)
+			subq.l	#1,a0
+
+.checkCR		cmpa.l	a3,a0
+			blt.s	.checkEmpty
+			cmp.b	#13,(a0)
+			bne.s	.checkEmpty
+			move.b	#0,(a0)
+
+.checkEmpty		; check empty or comment (#)
+			tst.b	(a3)
+			beq.s	.readLoop
+			cmp.b	#'#',(a3)
+			beq.s	.readLoop
+
+			; 5. Add file to playlist
+			movea.l	a3,a0
+			bsr	_PlaylistAddSingleFile
+
+			bra.s	.readLoop
+
+.eof			adda.l	#512,sp					; free stack buffer
+
+			; 6. Close the file
+			movea.l	vmp_DosBase(a5),a6
+			move.l	d7,d1
+			LVO	Close
+
+.doneLoad		movem.l	(sp)+,d2-d7/a2-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistButtonLoadPL
+			;------------------------------------------------------------
+_PlaylistButtonLoadPL	movem.l	d5/a0/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			; 1. Check if playing, and temporarily pause
+			move.l	vmp_Playing(a5),d5			; Save current playing state in d5
+			beq.s	.noPauseLoad
+			tst.l	vmp_Paused(a5)
+			bne.s	.noPauseLoad				; If already paused, do nothing
+
+			bsr	_PausePlayer
+
+.noPauseLoad		; 2. Open ASL File Requester for loading
+			lea	vmp_FilenameBuffer,a0
+			bsr	_AskFile
+			tst.l	d0
+			beq.s	.resumeLoad
+
+			; 3. Load the playlist from chosen file
+			lea	vmp_FilenameBuffer,a0
+			bsr	_LoadPlaylistFromFile
+
+.resumeLoad		; 4. Resume if we paused
+			tst.l	d5
+			beq.s	.doneLoadBtn
+			tst.l	vmp_Paused(a5)
+			beq.s	.doneLoadBtn
+			bsr	_ResumePlayer
+
+.doneLoadBtn		moveq	#0,d0
+			movem.l	(sp)+,d5/a0/a5-a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _PlaylistButtonSavePL
+			;------------------------------------------------------------
+_PlaylistButtonSavePL	movem.l	d5/a0/a5-a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			; 1. Check if playing, and temporarily pause
+			move.l	vmp_Playing(a5),d5			; Save current playing state in d5
+			beq.s	.noPauseSave
+			tst.l	vmp_Paused(a5)
+			bne.s	.noPauseSave				; If already paused, do nothing
+
+			bsr	_PausePlayer
+
+.noPauseSave		; 2. Open ASL File Requester for saving
+			lea	vmp_FilenameBuffer,a0
+			bsr	_AskFileSave
+			tst.l	d0
+			beq.s	.resumeSave
+
+			; 3. Save the playlist to chosen file
+			lea	vmp_FilenameBuffer,a0
+			bsr	_SavePlaylistToFile
+
+.resumeSave		; 4. Resume if we paused
+			tst.l	d5
+			beq.s	.doneSaveBtn
+			tst.l	vmp_Paused(a5)
+			beq.s	.doneSaveBtn
+			bsr	_ResumePlayer
+
+.doneSaveBtn		moveq	#0,d0
+			movem.l	(sp)+,d5/a0/a5-a6
+			rts
+
+
 
 			;------------------------------------------------------------
 			; _PlaylistShuffle
@@ -2135,6 +2364,7 @@ _PlaylistUpdateStatus
 			move.b	#'r',(a0)+
 			move.b	#'a',(a0)+
 			move.b	#'c',(a0)+
+			move.b	#'k',(a0)+
 			move.b	#'s',(a0)+
 			move.b	#':',(a0)+
 			move.b	#' ',(a0)+
@@ -2812,6 +3042,101 @@ _AskFile		movem.l	d1/d5/a0-a3/a6,-(sp)
 			rts
 
 
+			;------------------------------------------------------------
+			; _AskFileSave
+			;
+			; Input:
+			;	a0 = pointer to filename buffer
+			; Result:
+			;	d0 = FALSE if no file is picked
+			;------------------------------------------------------------
+_AskFileSave		movem.l	d1/d5/a0-a3/a6,-(sp)
+
+			moveq	#0,d5
+			movea.l	a0,a3							; a3 = buffer
+
+			movea.l	vmp_ASLBase(a5),a6
+			move.l	#ASL_FileRequest,d0
+			suba.l	a0,a0
+			LVO	AllocAslRequest
+			movea.l	d0,a2							; a2 = requester
+			beq.s	.errorSave
+	
+			; Check settings default MP3 folder path
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_SettingsDefaultMP3Path(a5),a0
+			move.l	#MUIA_String_Contents,d0
+			lea	vmp_MUI_TempFilePointer(a5),a1
+			LVO	GetAttr
+			move.l	vmp_MUI_TempFilePointer(a5),d2
+
+			tst.l	d2
+			beq.s	.noDefaultFileTagsSave
+			movea.l	d2,a0
+			tst.b	(a0)
+			beq.s	.noDefaultFileTagsSave
+
+			suba.l	#24,sp
+			movea.l	sp,a1
+			move.l	#ASLFR_InitialDrawer,(a1)
+			move.l	d2,4(a1)
+			move.l	#ASLFR_DoSaveMode,8(a1)
+			move.l	#TRUE,12(a1)
+			move.l	#TAG_DONE,16(a1)
+
+			movea.l	a2,a0
+			movea.l	vmp_ASLBase(a5),a6
+			LVO	AslRequest
+			adda.l	#24,sp
+			bra.s	.fileReqDoneSave
+
+.noDefaultFileTagsSave
+			suba.l	#16,sp
+			movea.l	sp,a1
+			move.l	#ASLFR_DoSaveMode,(a1)
+			move.l	#TRUE,4(a1)
+			move.l	#TAG_DONE,8(a1)
+
+			movea.l	a2,a0
+			movea.l	vmp_ASLBase(a5),a6
+			LVO	AslRequest
+			adda.l	#16,sp
+
+.fileReqDoneSave
+			move.l	d0,d5
+			beq.s	.canceledSave
+			
+			; Copy path to buffer
+			movea.l	fr_Drawer(a2),a0
+			cmp.b	#0,(a0)
+			beq.s	.pathDoneSave
+
+.pathLoopSave		move.b	(a0)+,d0
+			move.b	d0,(a3)+
+			cmp.b	#0,d0
+			bne.s	.pathLoopSave
+			
+			; add "/" if applicable
+			suba.l	#1,a3
+			cmp.b	#":",-1(a3)
+			beq.s	.pathDoneSave
+			move.b	#"/",(a3)+	
+
+.pathDoneSave		; Copy filename to buffer
+			movea.l	fr_File(a2),a0
+.fileLoopSave		move.b	(a0)+,d0
+			move.b	d0,(a3)+
+			cmp.b	#0,d0
+			bne.s	.fileLoopSave
+
+.canceledSave		movea.l	a2,a0
+			LVO	FreeAslRequest
+
+.errorSave		move.l	d5,d0
+			movem.l	(sp)+,d1/d5/a0-a3/a6
+			rts
+
+
 
 			;------------------------------------------------------------
 			; _SetStatus
@@ -2863,7 +3188,7 @@ txt_DirlistParent		dc.b	"Parent",0
 vmp_FilePattern			dc.b	"#?.mp3",0
 vmp_FilePatternToken		ds.b	32
 
-								; Playlist window
+				; Playlist window
 txt_PlaylistWindowTitle		dc.b	"Playlist",0
 txt_PlaylistAddFile		dc.b	"Add file",0
 txt_PlaylistAddDir		dc.b	"Add directory",0
@@ -2877,6 +3202,7 @@ txt_PlaylistLoopOff		dc.b	"Loop: Off",0
 txt_PlaylistLoopTrack		dc.b	"Loop: Track",0
 txt_PlaylistLoopAll		dc.b	"Loop: Playlist",0
 txt_PlaylistStatusEmpty		dc.b	"Tracks: 0",0
+txt_DefaultPlaylistPath		dc.b	"PROGDIR:vaMP3.playlist",0
 
 				; Prefs window
 txt_SettingsWindowTitle		dc.b	"Settings",0
@@ -2887,7 +3213,7 @@ txt_SettingsImagePath		dc.b	"Path to Tapedeck buttons",0
 				; About window
 txt_AboutWindowTitle		dc.b	"About VaMP3",0
 txt_AboutLabel			dc.b	27,"b"							; bold style
-				dc.b	27,"c","VaMP3 v",VAMP3_VERSION+"0",".",VAMP3_REVISION+"0"," Copyright � 2026 Bedroomcoders.com",10,10
+				dc.b	27,"c","VaMP3 v",VAMP3_VERSION+"0",".",VAMP3_REVISION+"0"," Copyright (c) 2026 Bedroomcoders.com",10,10
 				dc.b	27,"n"							; normal style
 				dc.b	27,"c","68080 assembly by Tjomp",10
 				dc.b	27,"c","Graphics by HANSolo",10,10
@@ -2903,6 +3229,8 @@ txt_Menu_PrefsSettings		dc.b	"Settings",0
 txt_Menu_PrefsMUISettings	dc.b	"MUI Settings",0
 
 				; Shortcut
+txt_Shortcut_LoadPL		dc.b	"L",0
+txt_Shortcut_SavePL		dc.b	"S",0
 txt_Shortcut_About		dc.b	"?",0
 txt_Shortcut_Quit		dc.b	"Q",0
 txt_Shortcut_Settings		dc.b	"P",0
@@ -3011,6 +3339,14 @@ vmp_Hook_PlaylistButtonUp	ds.b	MLN_SIZE
 
 vmp_Hook_PlaylistButtonDown	ds.b	MLN_SIZE
 				dc.l	_PlaylistButtonDown
+				dc.l	0,0
+
+vmp_Hook_PlaylistButtonLoadPL	ds.b	MLN_SIZE
+				dc.l	_PlaylistButtonLoadPL
+				dc.l	0,0
+
+vmp_Hook_PlaylistButtonSavePL	ds.b	MLN_SIZE
+				dc.l	_PlaylistButtonSavePL
 				dc.l	0,0
 
 vmp_Hook_PlaylistShuffle	ds.b	MLN_SIZE

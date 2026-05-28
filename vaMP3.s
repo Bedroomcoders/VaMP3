@@ -464,6 +464,10 @@ _Init			move.l	4.w,a6
 			; EventHandler is the mainloop
 			bsr	_EventHandler
 
+			; Auto-save current playlist to PROGDIR:vaMP3.playlist
+			lea	txt_DefaultPlaylistPath,a0
+			bsr	_SavePlaylistToFile
+
 			; Close Playlist window in advance to speed up list clearing
 			movea.l	vmp_IntuitionBase(a5),a6
 			movea.l	vmp_MUI_PlaylistWindow(a5),a0
