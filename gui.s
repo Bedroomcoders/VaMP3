@@ -1401,21 +1401,39 @@ _PlaylistButtonClose
 			;------------------------------------------------------------
 
 _PlaylistButtonAddFile
-			movem.l	a0/a5-a6,-(sp)
+			movem.l	d5/a0/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
+			; 1. Check if playing, and temporarily pause
+			move.l	vmp_Playing(a5),d5			; Save current playing state in d5
+			beq.s	.noPause
+			tst.l	vmp_Paused(a5)
+			bne.s	.noPause					; If already paused, do nothing
+
+			bsr	_PausePlayer
+
+.noPause
+			; 2. Open synchronous ASL requester
 			lea	vmp_FilenameBuffer,a0
 			bsr	_AskFile
 			tst.l	d0
-			beq.s	.done
-						
+			beq.s	.resume
+
+			; 3. Add file to playlist
 			lea	vmp_FilenameBuffer,a0
 			bsr	_PlaylistAddSingleFile
 
-.done			moveq	#0,d0
-			movem.l	(sp)+,a0/a5-a6
-			rts
+.resume
+			; 4. Resume if we paused
+			tst.l	d5
+			beq.s	.done
+			tst.l	vmp_Paused(a5)
+			beq.s	.done
+			bsr	_ResumePlayer
 
+.done			moveq	#0,d0
+			movem.l	(sp)+,d5/a0/a5-a6
+			rts
 
 
 			;------------------------------------------------------------
@@ -1423,21 +1441,39 @@ _PlaylistButtonAddFile
 			;------------------------------------------------------------
 
 _PlaylistButtonAddDir
-			movem.l	a0/a5-a6,-(sp)
+			movem.l	d5/a0/a5-a6,-(sp)
 			movea.l	vmp_StructPointer,a5
 
+			; 1. Check if playing, and temporarily pause
+			move.l	vmp_Playing(a5),d5			; Save current playing state in d5
+			beq.s	.noPause
+			tst.l	vmp_Paused(a5)
+			bne.s	.noPause
+
+			bsr	_PausePlayer
+
+.noPause
+			; 2. Open synchronous ASL requester
 			lea	vmp_FilenameBuffer,a0
 			bsr	_AskDir
 			tst.l	d0
-			beq.s	.done
-						
+			beq.s	.resume
+
+			; 3. Add directory to playlist
 			lea	vmp_FilenameBuffer,a0
 			bsr	_PlaylistAddSingleDir
 
-.done			moveq	#0,d0
-			movem.l	(sp)+,a0/a5-a6
-			rts
+.resume
+			; 4. Resume if we paused
+			tst.l	d5
+			beq.s	.done
+			tst.l	vmp_Paused(a5)
+			beq.s	.done
+			bsr	_ResumePlayer
 
+.done			moveq	#0,d0
+			movem.l	(sp)+,d5/a0/a5-a6
+			rts
 
 
 			;------------------------------------------------------------
@@ -1962,16 +1998,37 @@ _AskDir			movem.l	d1/d5/a0-a3/a6,-(sp)
 			movea.l	d0,a2							; a2 = requester
 			beq.s	.error
 	
+			; Check settings default MP3 folder path
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_SettingsDefaultMP3Path(a5),a0
+			move.l	#MUIA_String_Contents,d0
+			lea	vmp_MUI_TempFilePointer(a5),a1
+			LVO	GetAttr
+			move.l	vmp_MUI_TempFilePointer(a5),d2			; d2 = initial drawer path (or 0)
+
 			suba.l	#24,sp
 			movea.l	sp,a1
-			
+
 			move.l	#ASLFR_DrawersOnly,(a1)
 			move.l	#TRUE,4(a1)
-			
+
+			; If we have a default path in d2, pass it!
+			tst.l	d2
+			beq.s	.noDefaultDir
+			movea.l	d2,a0
+			tst.b	(a0)
+			beq.s	.noDefaultDir
+
+			move.l	#ASLFR_InitialDrawer,8(a1)
+			move.l	d2,12(a1)
+			move.l	#TAG_DONE,16(a1)
+			bra.s	.tagDone
+
+.noDefaultDir
 			move.l	#TAG_DONE,8(a1)
-			move.l	#0,12(a1)
-			
+.tagDone
 			movea.l	a2,a0
+			movea.l	vmp_ASLBase(a5),a6
 			LVO	AslRequest
 			adda.l	#24,sp
 			
@@ -2687,9 +2744,39 @@ _AskFile		movem.l	d1/d5/a0-a3/a6,-(sp)
 			movea.l	d0,a2							; a2 = requester
 			beq.s	.error
 	
+			; Check settings default MP3 folder path
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_SettingsDefaultMP3Path(a5),a0
+			move.l	#MUIA_String_Contents,d0
+			lea	vmp_MUI_TempFilePointer(a5),a1
+			LVO	GetAttr
+			move.l	vmp_MUI_TempFilePointer(a5),d2
+
+			tst.l	d2
+			beq.s	.noDefaultFileTags
+			movea.l	d2,a0
+			tst.b	(a0)
+			beq.s	.noDefaultFileTags
+
+			suba.l	#16,sp
+			movea.l	sp,a1
+			move.l	#ASLFR_InitialDrawer,(a1)
+			move.l	d2,4(a1)
+			move.l	#TAG_DONE,8(a1)
+
+			movea.l	a2,a0
+			movea.l	vmp_ASLBase(a5),a6
+			LVO	AslRequest
+			adda.l	#16,sp
+			bra.s	.fileReqDone
+
+.noDefaultFileTags
 			movea.l	a2,a0
 			suba.l	a1,a1
+			movea.l	vmp_ASLBase(a5),a6
 			LVO	AslRequest
+
+.fileReqDone
 			move.l	d0,d5
 			beq.s	.canceled
 			
