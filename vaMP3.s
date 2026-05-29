@@ -71,7 +71,6 @@
 			APTR	vmp_MUI_MainWdwButtonPlaylist
 			APTR	vmp_MUI_MainWdwButtonDirlist
 			APTR	vmp_MUI_MainWdwSliderVolume
-			APTR	vmp_MUI_MainWdwButtonStop
 			APTR	vmp_MUI_MainWdwButtonPlay
 			APTR	vmp_MUI_MainWdwButtonNext
 			APTR	vmp_MUI_MainWdwButtonPrevious
@@ -128,6 +127,9 @@
 			APTR	vmp_MUI_AboutVGroup
 			APTR	vmp_MUI_AboutLabel
 			APTR	vmp_MUI_AboutLogo
+			APTR	vmp_MUI_CompactWindow
+			APTR	vmp_MUI_CompactWdwLabel
+			APTR	vmp_MUI_CompactWdwVGroup
 			APTR	vmp_MUI_Menustrip
 			APTR	vmp_MUI_MenuFile
 			APTR	vmp_MUI_MenuFileLoadPL
@@ -137,6 +139,13 @@
 			APTR	vmp_MUI_MenuPreferences
 			APTR	vmp_MUI_MenuPrefsSettings
 			APTR	vmp_MUI_MenuPrefsMUISettings
+			APTR	vmp_MUI_MenuPlayer
+			APTR	vmp_MUI_MenuPlayerPlayPause
+			APTR	vmp_MUI_MenuPlayerNext
+			APTR	vmp_MUI_MenuPlayerPrevious
+			APTR	vmp_MUI_MenuPlayerPlaylist
+			APTR	vmp_MUI_MenuPlayerDirlist
+			APTR	vmp_MUI_MenuPlayerCompact
 			APTR	vmp_MP3_Stream
 			LONG	vmp_PCM_ActiveBuffer
 			LONG	vmp_PCM_AudioSize
@@ -148,9 +157,6 @@
 			STRUCT	vmp_TimerPort,34
 			STRUCT	vmp_Padding,2
 			STRUCT	vmp_TimerReq,40
-			APTR	vmp_ImgBuffer_Stop
-			LONG	vmp_ImgWidth_Stop
-			LONG	vmp_ImgHeight_Stop
 			APTR	vmp_ImgBuffer_Pause
 			LONG	vmp_ImgWidth_Pause
 			LONG	vmp_ImgHeight_Pause
@@ -358,13 +364,6 @@ _Init			move.l	4.w,a6
 
 
 			; Load Custom Button Images
-			lea	str_ImgStop,a0
-			bsr	_BuildImageFilename
-			lea	vmp_FilenameBuffer,a0
-			bsr	_LoadARGBImage
-			move.l	d0,vmp_ImgBuffer_Stop(a5)
-			move.l	d1,vmp_ImgWidth_Stop(a5)
-			move.l	d2,vmp_ImgHeight_Stop(a5)
 			
 			lea	str_ImgPlay,a0
 			bsr	_BuildImageFilename
@@ -498,9 +497,6 @@ _Init			move.l	4.w,a6
 			LVO	MUI_DisposeObject		
 
 .cleanup		movea.l	4.w,a6
-			
-			movea.l	vmp_ImgBuffer_Stop(a5),a1
-			jsr	_LVOFreeVec(a6)
 			
 			movea.l	vmp_ImgBuffer_Play(a5),a1
 			jsr	_LVOFreeVec(a6)
@@ -827,7 +823,7 @@ vmp_DatatypesName	dc.b	"datatypes.library",0
 vmp_TimerDeviceName	dc.b	"timer.device",0
 vmp_UniquePortName	dc.b	"VAMP3.1",0
 
-vmp_VersionString	dc.b	"$VER: VaMP3 v",VAMP3_VERSION+"0",".",VAMP3_REVISION+"0"," Copyright � 2026 Bedroomcoders.com"
+vmp_VersionString	dc.b	"$VER: VaMP3 v",VAMP3_VERSION+"0",".",VAMP3_REVISION+"0"," Copyright (c) 2026 Bedroomcoders.com"
 
 			even
 vmp_TimeBuffer		ds.b	32
@@ -840,13 +836,12 @@ vmp_WorkbenchMessage	dc.l	0
 
 			; Image Paths
 str_Path		dc.b	"Progdir:images/Childsplay",0
-str_ImgStop		dc.b	"Stop.png",0
-str_ImgPlay		dc.b	"Play.png",0
-str_ImgPause		dc.b	"Pause.png",0
-str_ImgNext		dc.b	"Next.png",0
-str_ImgPrev		dc.b	"Previous.png",0
-str_ImgPlaylist		dc.b	"Playlist.png",0
-str_ImgDirlist		dc.b	"Dirlist.png",0
+str_ImgPlay		dc.b	"Play",0
+str_ImgPause		dc.b	"Pause",0
+str_ImgNext		dc.b	"Next",0
+str_ImgPrev		dc.b	"Previous",0
+str_ImgPlaylist		dc.b	"Playlist",0
+str_ImgDirlist		dc.b	"Dirlist",0
 			even
 
 

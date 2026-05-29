@@ -2,6 +2,7 @@ Known issues:
  
   
 Planned:
+ - Compact player window
  - AREXX interface?
 
  

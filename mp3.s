@@ -70,6 +70,13 @@ _NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
 			STACKADRTAG	vmp_NameBuffer, MUIA_Text_Contents
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
+			; Update song name in Compact window
+			movea.l	vmp_MUI_CompactWdwLabel(a5),a0
+			INITSTACKTAG
+			STACKADRTAG	vmp_NameBuffer, MUIA_Text_Contents
+		;	STACKADRTAG	vmp_NameBuffer, MUIA_Window_Title
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
 			; Stop any playing audio
 			moveq	#VMP_AUDIO_CHANNEL,d0
 			bsr	_StopAudio
