@@ -1,7 +1,7 @@
 Short Description: MUI MP3 Player for Apollo V4 / AmigaOS
 Author: Tomas Jacobsen (Bedroomcoders.com)
 Uploader: tomas@bedroomcoders.com
-Version: 0.2
+Version: 1.0
 Type: mus/play
 Architecture: m68k-amigaos >= 3.0 (optimized for 68080)
 
@@ -49,7 +49,7 @@ USAGE
 -----
 Double-click the "vaMP3" icon from Workbench or run it from the CLI/Shell.
 
-At first startup, the default "Childsplay" tapedeck buttons are displayed. 
+At first startup, the default "GrayNWhite" tapedeck buttons by HanSOLO are displayed. 
 Additional buttonsets are included in the package and can be selected via the 
 settings menu.
 

@@ -175,6 +175,8 @@
 			APTR	vmp_ImgBuffer_Dirlist
 			LONG	vmp_ImgWidth_Dirlist
 			LONG	vmp_ImgHeight_Dirlist
+			LONG	vmp_LastTimeSecs
+			LONG	vmp_LastSliderVal
 		LABEL	vmp_SIZEOF
 
 
@@ -835,7 +837,7 @@ vmp_WorkbenchMessage	dc.l	0
 
 
 			; Image Paths
-str_Path		dc.b	"Progdir:images/Childsplay",0
+str_Path		dc.b	"Progdir:images/HANSolo_GrayNWhite",0
 str_ImgPlay		dc.b	"Play",0
 str_ImgPause		dc.b	"Pause",0
 str_ImgNext		dc.b	"Next",0

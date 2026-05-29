@@ -2,11 +2,11 @@ Known issues:
  
   
 Planned:
- - Compact player window
  - AREXX interface?
 
  
 Changes:
+ - Compact player window
  - Load and save playlist in menu for backups and swapping out current playlist
  - Playlist supporting drag&drop + auto save state
  - New layout. Dirlist and Playlist is now Image buttons

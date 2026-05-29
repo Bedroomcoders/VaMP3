@@ -39,9 +39,11 @@ _NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
 .mp3Opened		move.l	d0,vmp_MP3_Stream(a5)
 			movea.l	d0,a0							; a0 = stream pointer
 			
-			; 1. Reset decoded samples and slider grabbed
+			; 1. Reset decoded samples, slider grabbed, and UI update state
 			move.l	#0,vmp_DecodedSamples(a5)
 			move.l	#0,vmp_SliderGrabbed(a5)
+			move.l	#-1,vmp_LastTimeSecs(a5)
+			move.l	#-1,vmp_LastSliderVal(a5)
 			
 			; 2. Read and store duration
 			move.l	mp3_ms_duration(a0),d0

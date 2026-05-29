@@ -2850,6 +2850,10 @@ _UpdateUIProgress
 			divu.l	d4,d2								; d2 = SliderVal (0-1000)
 			
 .setSlider
+			cmp.l	vmp_LastSliderVal(a5),d2
+			beq.s	.skipSlider
+			move.l	d2,vmp_LastSliderVal(a5)
+
 			; Set Slider Value
 			movea.l	vmp_IntuitionBase(a5),a6
 			movea.l	vmp_MUI_MainWdwSliderPosition(a5),a0
@@ -2862,6 +2866,11 @@ _UpdateUIProgress
 			; Convert ElapsedMS (d3) to minutes and seconds
 			move.l	d3,d1								; Restore ElapsedMS from preserved d3 into d1
 			divu.l	#1000,d1							; d1 = ElapsedSeconds
+			
+			cmp.l	vmp_LastTimeSecs(a5),d1
+			beq.s	.exit
+			move.l	d1,vmp_LastTimeSecs(a5)
+			
 			move.l	d1,d0								; d0 = ElapsedSeconds
 			divu.w	#60,d0								; d0.w = quotient (minutes), d0.hw = remainder (seconds)
 			move.l	d0,d2								; Keep quotient & remainder in d2
