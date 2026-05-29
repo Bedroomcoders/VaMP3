@@ -3398,30 +3398,30 @@ txt_MainWdwDirlist		dc.b	"Dirlist",0
 
 				; Dirlist window
 txt_DirlistWindowTitle		dc.b	"Directory listing",0
-txt_DirlistParent		dc.b	"Parent",0
+txt_DirlistParent		dc.b	27,"c","Parent",0
 
 vmp_FilePattern			dc.b	"#?.mp3",0
 vmp_FilePatternToken		ds.b	32
 
 				; Playlist window
 txt_PlaylistWindowTitle		dc.b	"Playlist",0
-txt_PlaylistAddFile		dc.b	"Add file",0
-txt_PlaylistAddDir		dc.b	"Add directory",0
-txt_PlaylistRemove		dc.b	"Remove",0
-txt_PlaylistClear		dc.b	"Clear",0
-txt_PlaylistUp			dc.b	"Move Up",0
-txt_PlaylistDown		dc.b	"Move Down",0
-txt_PlaylistShuffleOff		dc.b	"Shuffle: Off",0
-txt_PlaylistShuffleOn		dc.b	"Shuffle: On",0
-txt_PlaylistLoopOff		dc.b	"Loop: Off",0
-txt_PlaylistLoopTrack		dc.b	"Loop: Track",0
-txt_PlaylistLoopAll		dc.b	"Loop: Playlist",0
+txt_PlaylistAddFile		dc.b	27,"c","Add file",0
+txt_PlaylistAddDir		dc.b	27,"c","Add directory",0
+txt_PlaylistRemove		dc.b	27,"c","Remove",0
+txt_PlaylistClear		dc.b	27,"c","Clear",0
+txt_PlaylistUp			dc.b	27,"c","Move Up",0
+txt_PlaylistDown		dc.b	27,"c","Move Down",0
+txt_PlaylistShuffleOff		dc.b	27,"c","Shuffle: Off",0
+txt_PlaylistShuffleOn		dc.b	27,"c","Shuffle: On",0
+txt_PlaylistLoopOff		dc.b	27,"c","Loop: Off",0
+txt_PlaylistLoopTrack		dc.b	27,"c","Loop: Track",0
+txt_PlaylistLoopAll		dc.b	27,"c","Loop: Playlist",0
 txt_PlaylistStatusEmpty		dc.b	"Tracks: 0",0
 txt_DefaultPlaylistPath		dc.b	"PROGDIR:vaMP3.playlist",0
 
-				; Prefs window
+				; Settings window
 txt_SettingsWindowTitle		dc.b	"Settings",0
-txt_SettingsSave		dc.b	"Save",0
+txt_SettingsSave		dc.b	27,"c","Save",0
 txt_SettingsDefaultMP3Folder	dc.b	"Default MP3 Folder",0
 txt_SettingsImagePath		dc.b	"Path to Tapedeck buttons",0
 
@@ -3455,7 +3455,7 @@ txt_Menu_PlayerNext		dc.b	"Next",0
 txt_Menu_PlayerPrevious		dc.b	"Previous",0
 txt_Menu_PlayerPlaylist		dc.b	"Playlist",0
 txt_Menu_PlayerDirlist		dc.b	"Dirlist",0
-txt_Menu_PlayerCompact		dc.b	"Compact",0
+txt_Menu_PlayerCompact		dc.b	"Compact view",0
 
 				; Shortcut
 txt_Shortcut_LoadPL		dc.b	"L",0
