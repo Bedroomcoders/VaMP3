@@ -57,13 +57,15 @@ _NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
 			
 			; 5. Extract and display centered Song Name
 			lea	vmp_NameBuffer,a1
-			move.b	#27,(a1)+							; ESC
-			move.b	#'c',(a1)+							; center command
-			
+
 			movea.l	a2,a0
 			bsr	_GetFileNamePart					; a0 = clean filename
-.copyName	move.b	(a0)+,(a1)+
+.copyName		move.b	(a0)+,(a1)+
 			bne.s	.copyName
+			
+			; Remove null terminator copied by .copyName
+			subq.l	#1,a1
+			move.b	#0,(a1)								; Null-terminate
 			
 			; Update Song Name UI Text
 			movea.l	vmp_IntuitionBase(a5),a6
@@ -76,7 +78,6 @@ _NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
 			movea.l	vmp_MUI_CompactWdwLabel(a5),a0
 			INITSTACKTAG
 			STACKADRTAG	vmp_NameBuffer, MUIA_Text_Contents
-		;	STACKADRTAG	vmp_NameBuffer, MUIA_Window_Title
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
 			; Stop any playing audio
@@ -107,9 +108,12 @@ _NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
 			tst.l	vmp_FramesToDecode(a5)
 			bne.s	.initLoop1
 			
-			; Start Paula playing Buffer A
+			; Start Paula playing Buffer A (only if not autoloading)
 			move.l	#0,vmp_PCM_ActiveBuffer(a5)
+			tst.l	vmp_Autoloading(a5)
+			bne.s	.skipPlay
 			bsr	_PlayMP3
+.skipPlay
 			
 			; 2. Decode Buffer B (4)
 			; Active=0, so _DecodeFrames automatically fills and queues 4!
@@ -127,9 +131,22 @@ _NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
 			move.l	vmp_InterruptMask(a5),d1
 			LVO	SetSignal
 			
+			tst.l	vmp_Autoloading(a5)
+			bne.s	.setPausedState
+			
 			moveq	#VMP_STATUS_PLAYING,d0
 			bsr	_SetStatus
 			move.l	#1,vmp_Playing(a5)
+			bra.s	.doneLoad
+			
+.setPausedState
+			moveq	#VMP_STATUS_PAUSED,d0
+			bsr	_SetStatus
+			move.l	#1,vmp_Playing(a5)
+			move.l	#1,vmp_Paused(a5)
+			move.l	#0,vmp_Autoloading(a5)			; Reset autoloading flag
+			
+.doneLoad
 			
 
 .done			move.l	d0,(sp)								; Overwrite d0 slot on stack with return value

@@ -117,6 +117,7 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			; Auto-load playlist from PROGDIR:vaMP3.playlist
 			lea	txt_DefaultPlaylistPath,a0
 			bsr	_LoadPlaylistFromFile
+			bsr	_RestoreStateOnStartup
 
 
 			moveq	#0,d5
@@ -710,8 +711,6 @@ _BuildCompactWindow	movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			STACKVALTAG	VMP_COMPACTWINDOWWIDTH, MUIA_Window_Width
 			STACKVALTAG	VMP_COMPACTWINDOWHEIGHT, MUIA_Window_Height
 			STACKVALTAG	FALSE, MUIA_Window_CloseGadget
-		;	STACKVALTAG	0, MUIA_Window_TopEdge
-		;	STACKVALTAG	TRUE, MUIA_Window_Borderless
 			STACKVALTAG	TRUE, MUIA_Window_AppWindow
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1				; Create MUI Window
 			move.l	d0,vmp_MUI_CompactWindow(a5)
@@ -865,6 +864,7 @@ _BuildMenu		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			STACKADRTAG	txt_Menu_PlayerCompact, MUIA_Menuitem_Title
 			STACKADRTAG	txt_Shortcut_Compact,MUIA_Menuitem_Shortcut
 			STACKVALTAG	TRUE, MUIA_Menuitem_Checkit
+			STACKVALTAG	TRUE, MUIA_Menuitem_Toggle
 			CALLSTACKTAG	_LVOMUI_NewObjectA,a1						; Compact
 			move.l	d0,vmp_MUI_MenuPlayerCompact(a5)
 			beq	.error
@@ -2099,6 +2099,139 @@ _LoadPlaylistFromFile	movem.l	d2-d7/a2-a6,-(sp)
 
 
 			;------------------------------------------------------------
+			; _SaveStateToFile
+			;------------------------------------------------------------
+			; Input: None
+			;------------------------------------------------------------
+_SaveStateToFile	movem.l	d2/d4/a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			; 1. Open state file for writing
+			movea.l	vmp_DosBase(a5),a6
+			lea	txt_DefaultStatePath,a0
+			move.l	a0,d1					; filename
+			move.l	#MODE_NEWFILE,d2
+			LVO	Open
+			move.l	d0,d4					; d4 = file handle
+			beq.s	.doneSave				; open failed
+
+			; 2. Allocate buffer on stack for our two LONGs
+			suba.l	#8,sp
+			move.l	vmp_PlayingIndex(a5),(sp)
+			move.l	vmp_PlayingFrom(a5),4(sp)
+
+			; 3. Write index and source
+			movea.l	vmp_DosBase(a5),a6
+			move.l	d4,d1					; file handle
+			move.l	sp,d2					; buffer
+			moveq	#8,d3					; size
+			LVO	Write
+
+			adda.l	#8,sp					; restore stack pointer
+
+			; 4. Close the file
+			movea.l	vmp_DosBase(a5),a6
+			move.l	d4,d1					; file handle
+			LVO	Close
+
+.doneSave		movem.l	(sp)+,d2/d4/a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _RestoreStateOnStartup
+			;------------------------------------------------------------
+			; Input: None
+			;------------------------------------------------------------
+_RestoreStateOnStartup	movem.l	d2-d4/a6,-(sp)
+			movea.l	vmp_StructPointer,a5
+
+			; 1. Check if playlist is empty
+			tst.l	vmp_PlaylistCount(a5)
+			beq.s	.doneRestore
+
+			; 2. Attempt to open state file for reading
+			movea.l	vmp_DosBase(a5),a6
+			lea	txt_DefaultStatePath,a0
+			move.l	a0,d1					; filename
+			move.l	#MODE_OLDFILE,d2
+			LVO	Open
+			move.l	d0,d4					; d4 = file handle
+			beq.s	.fallbackFirst			; open failed (use fallback)
+
+			; 3. Allocate buffer on stack for reading two LONGs
+			suba.l	#8,sp
+			movea.l	vmp_DosBase(a5),a6
+			move.l	d4,d1					; file handle
+			move.l	sp,d2					; buffer
+			moveq	#8,d3					; size
+			LVO	Read
+			
+			; Preserve read result (d0 = number of bytes read)
+			move.l	d0,d3
+
+			; Close the file immediately
+			movea.l	vmp_DosBase(a5),a6
+			move.l	d4,d1					; file handle
+			LVO	Close
+
+			; Check if we read exactly 8 bytes
+			cmp.l	#8,d3
+			bne.s	.freeStackFallback
+
+			; 4. Retrieve saved values from stack
+			move.l	(sp),d0					; d0 = SavedIndex
+			move.l	4(sp),d1				; d1 = SavedFrom
+			adda.l	#8,sp					; free stack buffer
+
+			; 5. Validate: SavedFrom == VMP_PLAYINGFROM_PLAYLIST AND SavedIndex < PlaylistCount
+			cmp.l	#VMP_PLAYINGFROM_PLAYLIST,d1
+			bne.s	.fallbackFirst
+			cmp.l	vmp_PlaylistCount(a5),d0
+			bhs.s	.fallbackFirst
+
+			; State is valid! Set active index and source
+			move.l	d0,vmp_PlayingIndex(a5)
+			move.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
+			bra.s	.loadSong
+
+.freeStackFallback	adda.l	#8,sp					; free stack buffer if read failed after alloc
+.fallbackFirst
+			; Fallback: Load first song in playlist (index 0)
+			move.l	#0,vmp_PlayingIndex(a5)
+			move.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
+
+.loadSong
+			; 6. Retrieve PlaylistEntry pointer using MUIM_List_GetEntry
+			lea	vmp_TempVariable(a5),a1
+			DOMETHOD	vmp_MUI_PlaylistList(a5), #MUIM_List_GetEntry, vmp_PlayingIndex(a5), a1
+			move.l	vmp_TempVariable(a5),a0
+			tst.l	a0
+			beq.s	.doneRestore
+
+			; Set active entry visually in the Playlist MUI List view
+			move.l	vmp_PlayingIndex(a5),d2
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_PlaylistList(a5),a0
+			INITSTACKTAG
+			STACKREGTAG	d2, MUIA_List_Active
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			; Set autoloading flag so _NewMP3 loads in absolute silence
+			move.l	#1,vmp_Autoloading(a5)
+
+			; Load path
+			move.l	vmp_TempVariable(a5),a0
+			lea	ple_Path(a0),a0
+			bsr	_NewMP3
+
+.doneRestore		movem.l	(sp)+,d2-d4/a6
+			rts
+
+
+
+			;------------------------------------------------------------
 			; _PlaylistButtonLoadPL
 			;------------------------------------------------------------
 _PlaylistButtonLoadPL	movem.l	d5/a0/a5-a6,-(sp)
@@ -2706,18 +2839,30 @@ _MenuCompact		movem.l	a0/a5-a6,-(sp)
 			lea	vmp_MUI_TempFilePointer(a5),a1					; Not really a pointer. checked/unchecked
 			LVO	GetAttr
 			tst.l	d0
-			beq.s	.done
+			beq.w	.done
 
 			move.l	vmp_MUI_TempFilePointer(a5),d0
 			cmp.l	#1,d0
 			bne.s	.unchecked
 
 
+			; Set initial label to create space for song name
+			movea.l	vmp_MUI_CompactWdwLabel(a5),a0
+			INITSTACKTAG
+			STACKADRTAG	txt_CompactLabel, MUIA_Text_Contents
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
 			; *** Open Compact window ***
 			movea.l	vmp_IntuitionBase(a5),a6
 			movea.l	vmp_MUI_CompactWindow(a5),a0
 			INITSTACKTAG
 			STACKVALTAG	TRUE,MUIA_Window_Open
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			; Update song name in Compact window
+			movea.l	vmp_MUI_CompactWdwLabel(a5),a0
+			INITSTACKTAG
+			STACKADRTAG	vmp_NameBuffer, MUIA_Text_Contents
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
 			; *** Close main window ***
@@ -2727,18 +2872,18 @@ _MenuCompact		movem.l	a0/a5-a6,-(sp)
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
 			; Check menuitem
-			movea.l	vmp_MUI_MenuPlayerCompact(a5),a0
-			INITSTACKTAG
-			STACKVALTAG	TRUE,MUIA_Menuitem_Toggle
-			CALLSTACKTAG	_LVOSetAttrsA,a1
+		;	movea.l	vmp_MUI_MenuPlayerCompact(a5),a0
+		;	INITSTACKTAG
+		;	STACKVALTAG	TRUE,MUIA_Menuitem_Toggle
+		;	CALLSTACKTAG	_LVOSetAttrsA,a1
 			bra.s	.done
 
 .unchecked
-			; *** Close Compact window ***
+			; Set initial label to create space for song name
 			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_CompactWindow(a5),a0
+			movea.l	vmp_MUI_MainWdwTextSongName(a5),a0
 			INITSTACKTAG
-			STACKVALTAG	FALSE,MUIA_Window_Open
+			STACKADRTAG	txt_CompactLabel, MUIA_Text_Contents
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
 			; *** Open main window ***
@@ -2747,11 +2892,25 @@ _MenuCompact		movem.l	a0/a5-a6,-(sp)
 			STACKVALTAG	TRUE,MUIA_Window_Open
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
-			; Uncheck menuitem
-			movea.l	vmp_MUI_MenuPlayerCompact(a5),a0
+			; Update Song Name UI Text
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_MainWdwTextSongName(a5),a0
 			INITSTACKTAG
-			STACKVALTAG	TRUE,MUIA_Menuitem_Toggle
+			STACKADRTAG	vmp_NameBuffer, MUIA_Text_Contents
 			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			; *** Close Compact window ***
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_CompactWindow(a5),a0
+			INITSTACKTAG
+			STACKVALTAG	FALSE,MUIA_Window_Open
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+			; Uncheck menuitem
+		;	movea.l	vmp_MUI_MenuPlayerCompact(a5),a0
+		;	INITSTACKTAG
+		;	STACKVALTAG	TRUE,MUIA_Menuitem_Toggle
+		;	CALLSTACKTAG	_LVOSetAttrsA,a1
 
 .done			movem.l	(sp)+,a0/a5-a6
 			rts
@@ -3427,6 +3586,7 @@ txt_PlaylistLoopTrack		dc.b	27,"c","Loop: Track",0
 txt_PlaylistLoopAll		dc.b	27,"c","Loop: Playlist",0
 txt_PlaylistStatusEmpty		dc.b	"Tracks: 0",0
 txt_DefaultPlaylistPath		dc.b	"PROGDIR:vaMP3.playlist",0
+txt_DefaultStatePath		dc.b	"PROGDIR:vaMP3.state",0
 
 				; Settings window
 txt_SettingsWindowTitle		dc.b	"Settings",0

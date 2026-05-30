@@ -32,7 +32,7 @@ FEATURES
 
 SYSTEM REQUIREMENTS
 -------------------
-* ApolloOS / AmigaOS 3.5 or higher.
+* ApolloOS / AmigaOS 3.5+ / AmigaOS 3.2+
 * Apollo Vampire V4 Accelerator or standalone system.
 * muimaster.library (MUI 3.8+ recommended).
 * mpega.library (Libmad version recommended).
@@ -51,7 +51,7 @@ Double-click the "vaMP3" icon from Workbench or run it from the CLI/Shell.
 
 At first startup, the default "GrayNWhite" tapedeck buttons by HanSOLO are displayed. 
 Additional buttonsets are included in the package and can be selected via the 
-settings menu.
+settings menu. Or why not create your own buttons with any datatype supported images?
 
 There are three ways to select and play your music:
   * Drag & Drop files or folders directly onto the player window.

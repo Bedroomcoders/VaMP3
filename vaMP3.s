@@ -177,6 +177,7 @@
 			LONG	vmp_ImgHeight_Dirlist
 			LONG	vmp_LastTimeSecs
 			LONG	vmp_LastSliderVal
+			LONG	vmp_Autoloading
 		LABEL	vmp_SIZEOF
 
 
@@ -468,6 +469,7 @@ _Init			move.l	4.w,a6
 			; Auto-save current playlist to PROGDIR:vaMP3.playlist
 			lea	txt_DefaultPlaylistPath,a0
 			bsr	_SavePlaylistToFile
+			bsr	_SaveStateToFile
 
 			; Close Playlist window in advance to speed up list clearing
 			movea.l	vmp_IntuitionBase(a5),a6
