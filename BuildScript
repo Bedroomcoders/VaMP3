@@ -5,6 +5,7 @@ makedir RAM:VaMP3
 copy data/images RAM:VaMP3/Images ALL
 copy data/VaMP3.info RAM:VaMP3
 copy data/README.txt RAM:VaMP3
+copy data/Changes.txt RAM:VaMP3
 vasmm68k_mot VaMP3.s -Fhunkexe -no-opt -o RAM:VaMP3/VaMP3
 lha -r -e a RAM:VaMP3.lha RAM:VaMP3
 

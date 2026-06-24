@@ -3,7 +3,12 @@ Known issues:
   
 Planned:
  - AREXX interface?
-
+ - Command line arguments for playing
+ - Treeview in dirlist?
+ - Persistent position in song
+ - Other file formats?
+ - Online streams?
+ 
  
 Changes:
  - Compact player window

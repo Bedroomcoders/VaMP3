@@ -808,13 +808,13 @@ _BuildMenu		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			move.l	d0,vmp_MUI_MenuPreferences(a5)
 			beq	.error
 
-			lea	MUIC_Menustrip,a0
-			INITSTACKTAG
-			STACKREGTAG	vmp_MUI_MenuPreferences(a5),MUIA_Family_Child
-			STACKREGTAG	vmp_MUI_MenuFile(a5),MUIA_Family_Child
-			CALLSTACKTAG	_LVOMUI_NewObjectA,a1
-			move.l	d0,vmp_MUI_Menustrip(a5)
-			beq	.error
+		;	lea	MUIC_Menustrip,a0
+		;	INITSTACKTAG
+		;	STACKREGTAG	vmp_MUI_MenuPreferences(a5),MUIA_Family_Child
+		;	STACKREGTAG	vmp_MUI_MenuFile(a5),MUIA_Family_Child
+		;	CALLSTACKTAG	_LVOMUI_NewObjectA,a1
+		;	move.l	d0,vmp_MUI_Menustrip(a5)
+		;	beq	.error
 
 
 			; Player menu
@@ -3664,11 +3664,7 @@ MUIC_Aboutmui			dc.b	"Aboutmui.mui",0
 vmp_CustomButton_Name		dc.b	"VaMP3CustomButton.mui",0
 				even
 
-vmp_Method_Input		dc.l	MUIM_Application_NewInput,vmp_Signals
-				dc.l	0
-
 vmp_Signals			ds.l	1							; Referenced from vmp_Method_Input structure
-
 
 				; Main windows hooks
 vmp_Hook_MainWdwButtonDirlist	ds.b	MLN_SIZE

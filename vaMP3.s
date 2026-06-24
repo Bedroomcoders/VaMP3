@@ -480,12 +480,6 @@ _Init			move.l	4.w,a6
 			STACKVALTAG	0,MUIA_Window_Open
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 .skipClosePlaylist
-
-			; Free playlist memory structures to prevent leaks at exit
-			bsr	_PlaylistButtonClear
-
-
-
 			; Remove interrupt handler for processing audio
 			move.w	#$0400,$dff09a
 			movea.l	4.w,a6
@@ -496,6 +490,10 @@ _Init			move.l	4.w,a6
 			; Stop playing audio and close any active stream
 			bsr	_CloseMP3
 
+			; Free playlist memory structures to prevent leaks at exit
+			bsr	_PlaylistButtonClear
+
+			; Close all MUI stuff
 			movea.l	vmp_MUIBase(a5),a6
 			movea.l	vmp_MUI_Application(a5),a0
 			LVO	MUI_DisposeObject		
@@ -557,12 +555,7 @@ _Init			move.l	4.w,a6
 
 _EventHandler		movem.l	d0-d2/a0-a2/a6,-(sp)
 
-.loop			movea.l	vmp_MUI_Application(a5),a2				; MUI Objects are of ICLASS Type
-			movea.l	-4(a2),a0						; Offset to Hook Struct (Is this undocumented?)
-			movea.l	h_Entry(a0),a6						; Find entry to execute method
-			lea	vmp_Method_Input,a1
-			jsr	(a6)							; DoMethod();
-
+.loop			DOMETHOD	vmp_MUI_Application(a5), #MUIM_Application_NewInput,#vmp_Signals
 			cmp.l	#MUIV_Application_ReturnID_Quit,d0
 			beq.w	.exit
     

@@ -202,7 +202,7 @@ DMCOUNT			SET	DMCOUNT+4
 			move.l	sp,a1
 			movea.l	\1,a2
 			movea.l	-4(a2),a0
-			movea.l	8(a0),a6
+			movea.l	h_Entry(a0),a6
 			jsr	(a6)
 
 			lea	DMCOUNT(sp),sp
