@@ -37,7 +37,7 @@ MPAACC_SEEK_ABS_BYTE_SEEK_POS	equ	4
 	; MUI
 _LVOMUI_DeleteCustomClass	equ	-114
 
-mp3_ms_bitrate			equ	18
+mp3_ms_bitrate			equ	6
 mp3_ms_duration			equ	14	; Offset in struct
 mp3_dec_frequency		equ	28
 

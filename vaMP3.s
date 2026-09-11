@@ -180,6 +180,7 @@
 			LONG	vmp_EOF_Pending
 			LONG	vmp_BSFileHandle
 			LONG	vmp_BSOffset
+			LONG	vmp_StreamSize
 		LABEL	vmp_SIZEOF
 
 

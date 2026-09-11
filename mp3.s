@@ -53,7 +53,21 @@ _NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
 			
 			; 2. Read and store duration
 			move.l	mp3_ms_duration(a0),d0
-			move.l	d0,vmp_SongDuration(a5)
+			cmp.l	#1000,d0							; Is duration valid (>= 1 second)?
+			bhs.s	.durationOk
+			
+			; Fallback: Calculate duration from StreamSize and Bitrate if mpega.library returned 0/tiny
+			; DurationMS = (StreamSize * 8) / Bitrate (in kbps)
+			move.w	mp3_ms_bitrate(a0),d1				; Bitrate in kbps (offset 6)
+			tst.w	d1
+			beq.s	.durationOk
+			ext.l	d1
+			move.l	vmp_StreamSize(a5),d0
+			lsl.l	#3,d0								; StreamSize in bits
+			divu.l	d1,d0								; d0 = duration in ms
+			
+.durationOk		move.l	d0,vmp_SongDuration(a5)
+
 			
 			; 3. Read and store sample rate
 			move.l	mp3_dec_frequency(a0),d1
@@ -337,10 +351,12 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 
 			; Update duration if mpega.library has now computed it
 			movea.l	vmp_MP3_Stream(a5),a0
-			move.l	mp3_ms_duration(a0),d0
-			tst.l	d0
-			beq.s	.decoded
-			move.l	d0,vmp_SongDuration(a5)
+			move.l	mp3_ms_duration(a0),d1
+			tst.l	d1
+			beq.s	.syncDurationOk
+			move.l	d1,vmp_SongDuration(a5)
+.syncDurationOk
+			move.l	#1152,d0						; 1 frame decoded by MPEGA_Decode
 			bra.s	.decoded
 
 .notAtStart
@@ -789,8 +805,9 @@ _InitBitStreamHook	lea	vmp_BitStreamHook,a0
 _BitStreamHook		movem.l	d1-d7/a0-a6,-(sp)
 			movea.l	vmp_StructPointer,a5			; Always establish a5
 			movea.l	vmp_DosBase(a5),a6
+			movea.l	a1,a4							; Preserve a1 (MPAACC packet pointer) in callee-saved a4
 
-			move.l	MPAACC_FUNC(a1),d0
+			move.l	MPAACC_FUNC(a4),d0
 			cmp.l	#MPEGA_BSFUNC_OPEN,d0
 			beq.s	.bsOpen
 			cmp.l	#MPEGA_BSFUNC_CLOSE,d0
@@ -812,7 +829,7 @@ _BitStreamHook		movem.l	d1-d7/a0-a6,-(sp)
 			clr.l	vmp_BSFileHandle(a5)
 
 .doOpen			clr.l	vmp_BSOffset(a5)
-			move.l	MPAACC_OPEN_STREAM_NAME(a1),d1
+			move.l	MPAACC_OPEN_STREAM_NAME(a4),d1
 			move.l	#MODE_OLDFILE,d2
 			LVO	Open
 			move.l	d0,vmp_BSFileHandle(a5)
@@ -926,7 +943,8 @@ _BitStreamHook		movem.l	d1-d7/a0-a6,-(sp)
 			; Stream size exposed to mpega.library is (totalSize - vmp_BSOffset)
 			move.l	d7,d0
 			sub.l	vmp_BSOffset(a5),d0
-			move.l	d0,MPAACC_OPEN_STREAM_SIZE(a1)
+			move.l	d0,vmp_StreamSize(a5)
+			move.l	d0,MPAACC_OPEN_STREAM_SIZE(a4)
 			moveq	#1,d0							; Return TRUE (success)
 			bra.s	.bsExit
 
@@ -944,8 +962,8 @@ _BitStreamHook		movem.l	d1-d7/a0-a6,-(sp)
 .bsRead			tst.l	vmp_BSFileHandle(a5)
 			beq.s	.readFail
 			move.l	vmp_BSFileHandle(a5),d1
-			move.l	MPAACC_READ_BUFFER(a1),d2
-			move.l	MPAACC_READ_NUM_BYTES(a1),d3
+			move.l	MPAACC_READ_BUFFER(a4),d2
+			move.l	MPAACC_READ_NUM_BYTES(a4),d3
 			LVO	Read
 			bra.s	.bsExit
 .readFail		moveq	#0,d0
@@ -954,7 +972,7 @@ _BitStreamHook		movem.l	d1-d7/a0-a6,-(sp)
 			;--- BSFUNC_SEEK ---
 .bsSeek			tst.l	vmp_BSFileHandle(a5)
 			beq.s	.seekFail
-			move.l	MPAACC_SEEK_ABS_BYTE_SEEK_POS(a1),d2
+			move.l	MPAACC_SEEK_ABS_BYTE_SEEK_POS(a4),d2
 			add.l	vmp_BSOffset(a5),d2				; Translate to physical file offset
 			move.l	vmp_BSFileHandle(a5),d1
 			moveq	#OFFSET_BEGINNING,d3

@@ -13,6 +13,10 @@ Changes:
 v1.1
  - New tapedeck buttons (Gipsy by HANSolo)
  - Command line arguments for playing specified song
+ - Implemented manual ID3 tag skipping for better handling when using bad mpega.library version
+ - Fixed bug where first and last buffer of a song may not be played
+ - Corrected many minor issues
+
 
 v1.0 release
  - Compact player window
