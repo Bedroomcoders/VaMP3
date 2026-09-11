@@ -14,9 +14,37 @@ _LVOMPEGA_Decode		equ	-42
 _LVOMPEGA_Close			equ	-36
 _LVOMPEGA_Seek			equ	-48
 
+	; MPEGA Bitstream Access
+MPEGA_BSFUNC_OPEN		equ	0
+MPEGA_BSFUNC_CLOSE		equ	1
+MPEGA_BSFUNC_READ		equ	2
+MPEGA_BSFUNC_SEEK		equ	3
+
+MPAACC_FUNC			equ	0
+MPAACC_DATA0			equ	4
+MPAACC_DATA1			equ	8
+MPAACC_DATA2			equ	12
+
+MPAACC_OPEN_STREAM_NAME		equ	4
+MPAACC_OPEN_BUFFER_SIZE		equ	8
+MPAACC_OPEN_STREAM_SIZE		equ	12
+
+MPAACC_READ_BUFFER		equ	4
+MPAACC_READ_NUM_BYTES		equ	8
+
+MPAACC_SEEK_ABS_BYTE_SEEK_POS	equ	4
+
+	; MUI
+_LVOMUI_DeleteCustomClass	equ	-114
+
 mp3_ms_bitrate			equ	18
 mp3_ms_duration			equ	14	; Offset in struct
 mp3_dec_frequency		equ	28
+
+MPEGA_ERR_EOF			equ	-1
+MPEGA_ERR_BADFRAME		equ	-2
+MPEGA_ERR_MEM			equ	-3
+MPEGA_ERR_NO_SYNC		equ	-4
 
 
 
@@ -37,7 +65,7 @@ PMODE_V43		equ	$1
 	; Application specific constants
 
 VAMP3_VERSION			equ	1
-VAMP3_REVISION			equ	0
+VAMP3_REVISION			equ	1
 
 VMP_MAINWINDOWID		equ	1
 VMP_MAINWINDOWWIDTH		equ	500
@@ -86,8 +114,8 @@ VMP_MAIN_POSITIONID		equ	4
 
 	; Playlist entry structure
 	STRUCTURE PlaylistEntry,0
-		STRUCT ple_Name,128		; Null-terminated filename/title (displayed directly by MUI List)
-		STRUCT ple_Path,256		; Null-terminated absolute path (used for loading/playback)
+		STRUCT ple_Name,256		; Null-terminated filename/title (displayed directly by MUI List)
+		STRUCT ple_Path,512		; Null-terminated absolute path (used for loading/playback)
 		LABEL ple_SIZEOF
 
 

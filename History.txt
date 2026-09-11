@@ -3,7 +3,6 @@ Known issues:
   
 Planned:
  - AREXX interface?
- - Command line arguments for playing
  - Treeview in dirlist?
  - Persistent position in song
  - Other file formats?
@@ -11,6 +10,11 @@ Planned:
  
  
 Changes:
+v1.1
+ - New tapedeck buttons (Gipsy by HANSolo)
+ - Command line arguments for playing specified song
+
+v1.0 release
  - Compact player window
  - Load and save playlist in menu for backups and swapping out current playlist
  - Playlist supporting drag&drop + auto save state

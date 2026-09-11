@@ -1,15 +1,15 @@
 Short Description: MUI MP3 Player for Apollo V4 / AmigaOS
 Author: Tomas Jacobsen (Bedroomcoders.com)
 Uploader: tomas@bedroomcoders.com
-Version: 1.0
+Version: 1.1
 Type: mus/play
-Architecture: m68k-amigaos >= 3.0 (optimized for 68080)
+Architecture: m68k-amigaos >= 3.5 (optimized for 68080)
 
 
 DESCRIPTION
 -----------
 VaMP3 is a lightweight and minimalistic MUI-based audio player designed 
-specifically for the Apollo Vampire V4. It features a compact, visually 
+specifically for the Apollo V4 platform. It features a compact, visually 
 premium dashboard coupled with robust playlist and directory management 
 capabilities.
 
@@ -53,15 +53,15 @@ At first startup, the default "GrayNWhite" tapedeck buttons by HanSOLO are displ
 Additional buttonsets are included in the package and can be selected via the 
 settings menu. Or why not create your own buttons with any datatype supported images?
 
-There are three ways to select and play your music:
-  * Drag & Drop files or folders directly onto the player window.
+There are fours ways to select and play your music:
+  * Drag & Drop files directly onto the player window.
   * Use the Dirlist window to navigate your folders and select songs. The player 
     will automatically continue playing the next song in the directory when the 
     active track finishes. This is a convenient way to play complete albums 
     stored on your hard drive.
   * Build a custom Playlist using Drag & Drop, or add single files and complete 
     directories using the playlist control buttons.
-
+  * Pass a MP3's filename as a command line argument
 
 COPYRIGHT
 ---------

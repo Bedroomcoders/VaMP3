@@ -15,18 +15,23 @@
 _NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
 			movea.l	a0,a2							; a2 = filename
 			
-			; Avoid self-copy if already in vmp_FilenameBuffer
-			cmpa.l	#vmp_FilenameBuffer,a0
+			; Avoid self-copy if already in vmp_CurrentSongPath
+			cmpa.l	#vmp_CurrentSongPath,a0
 			beq.s	.skipCopy
 
-			; Copy filename to vmp_FilenameBuffer so _SeekMP3 can reopen it
-			lea	vmp_FilenameBuffer,a1
-.copyPath	move.b	(a0)+,(a1)+
+			; Copy filename to vmp_CurrentSongPath so _SeekMP3 can safely reopen it (max 511 chars)
+			lea	vmp_CurrentSongPath(a5),a1
+			move.w	#511,d1
+.copyPath	move.b	(a0)+,d0
+			beq.s	.nullPath
+			move.b	d0,(a1)+
+			subq.w	#1,d1
 			bne.s	.copyPath
+.nullPath	clr.b	(a1)
 			
 .skipCopy	bsr	_CloseMP3
 			movea.l	vmp_MPEGABase(a5),a6
-			lea	vmp_FilenameBuffer,a0				; Restore correct filename pointer in a0 for MPEGA_Open
+			lea	vmp_CurrentSongPath(a5),a0			; Filename pointer in a0 for MPEGA_Open
 			lea     MP3_Ctrl,a1
 			LVO	MPEGA_Open
 			tst.l   d0
@@ -39,9 +44,10 @@ _NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
 .mp3Opened		move.l	d0,vmp_MP3_Stream(a5)
 			movea.l	d0,a0							; a0 = stream pointer
 			
-			; 1. Reset decoded samples, slider grabbed, and UI update state
+			; 1. Reset decoded samples, slider grabbed, UI update state, and EOF pending
 			move.l	#0,vmp_DecodedSamples(a5)
 			move.l	#0,vmp_SliderGrabbed(a5)
+			move.l	#0,vmp_EOF_Pending(a5)
 			move.l	#-1,vmp_LastTimeSecs(a5)
 			move.l	#-1,vmp_LastSliderVal(a5)
 			
@@ -108,15 +114,8 @@ _NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
 			tst.l	vmp_FramesToDecode(a5)
 			bne.s	.initLoop1
 			
-			; Start Paula playing Buffer A (only if not autoloading)
-			move.l	#0,vmp_PCM_ActiveBuffer(a5)
-			tst.l	vmp_Autoloading(a5)
-			bne.s	.skipPlay
-			bsr	_PlayMP3
-.skipPlay
-			
 			; 2. Decode Buffer B (4)
-			; Active=0, so _DecodeFrames automatically fills and queues 4!
+			move.l	#0,vmp_PCM_ActiveBuffer(a5)				; Active=0 so _DecodeFrames fills 4
 			move.l	#28,vmp_FramesToDecode(a5)
 			lea	vmp_PCM_PlayBufferArray,a0
 			move.l	4(a0),vmp_PCM_DecodePointer(a5)
@@ -124,22 +123,40 @@ _NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
 			tst.l	vmp_FramesToDecode(a5)
 			bne.s	.initLoop2
 			
-			; Enabling DMA instantly fires an interrupt.
-			; Clear this signal so our event loop doesn't instantly double-queue!
+			; Always program Paula hardware registers with Buffer A
+			move.l	#0,vmp_PCM_ActiveBuffer(a5)
+			bsr	_PlayMP3
+
+			; Immediately queue Buffer B into hardware registers
+			moveq	#4,d2
+			bsr	_QueueBuffer
+
+			; Clear any interrupt signal generated when DMA was enabled
+			move.w	#$0400,INTREQ
+			tst.w	INTREQR
 			movea.l	4.w,a6
 			moveq	#0,d0
 			move.l	vmp_InterruptMask(a5),d1
 			LVO	SetSignal
 			
+			move.l	vmp_InterruptMask(a5),d0
+			not.l	d0
+			and.l	d0,vmp_Signals
+			
 			tst.l	vmp_Autoloading(a5)
 			bne.s	.setPausedState
 			
+			clr.l	vmp_Paused(a5)
 			moveq	#VMP_STATUS_PLAYING,d0
 			bsr	_SetStatus
 			move.l	#1,vmp_Playing(a5)
 			bra.s	.doneLoad
 			
 .setPausedState
+			; For autoloading, stop DMA immediately so it stays silent
+			moveq	#VMP_AUDIO_CHANNEL,d0
+			bsr	_StopAudio
+
 			moveq	#VMP_STATUS_PAUSED,d0
 			bsr	_SetStatus
 			move.l	#1,vmp_Playing(a5)
@@ -162,6 +179,7 @@ _NewMP3			movem.l	d0-d1/d3/a0-a2/a6,-(sp)
 
 _CloseMP3		movem.l	a0/a6,-(sp)
 			move.l	#0,vmp_Playing(a5)
+			move.l	#0,vmp_EOF_Pending(a5)
 			moveq	#VMP_AUDIO_CHANNEL,d0
 			bsr	_StopAudio
 			
@@ -269,19 +287,82 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 			tst.l	d0
 			bgt.s	.decoded
 			
+			; Decode failed (d0 <= 0)!
+			; Check if this is at the start of the song (sync error from ID3v2 tags / embedded JPEG)
+			tst.l	vmp_DecodedSamples(a5)
+			bne.s	.notAtStart
+			
+			; We are at track start and MPEGA_Decode failed!
+			; Perform 100ms seek-based resynchronization loop
+			move.l	#100,d3							; Start seek at 100 ms
+.syncLoop
+			movea.l	vmp_MPEGABase(a5),a6
+			movea.l	vmp_MP3_Stream(a5),a0
+			move.l	d3,d0							; Target time in ms
+			moveq	#0,d1							; Absolute seek (0)
+			LVO	MPEGA_Seek
+			tst.l	d0
+			bmi.s	.syncNext						; Seek failed, try next offset
+			
+			movea.l	vmp_MPEGABase(a5),a6
+			move.l	vmp_MP3_Stream(a5),a0
+			move.l	#vmp_DecodeStreamArray,a1
+			LVO	MPEGA_Decode
+			tst.l	d0
+			bgt.s	.syncFound						; Success! Synchronized with audio stream!
+
+.syncNext
+			add.l	#100,d3							; Increment by 100 ms
+			
+			; Check search limit: 3000 ms or song duration (if known)
+			move.l	vmp_SongDuration(a5),d0
+			tst.l	d0
+			beq.s	.useDefaultLimit
+			cmp.l	#3000,d0
+			bls.s	.checkLimit
+.useDefaultLimit
+			move.l	#3000,d0
+.checkLimit
+			cmp.l	d0,d3
+			bls.s	.syncLoop
+			bra.w	.eof							; Exhausted search; abort
+
+.syncFound
+			; Sync found! Update DecodedSamples to match seek position
+			move.l	d3,d0
+			divu.l	#1000,d0						; d0 = elapsed seconds
+			move.l	vmp_SongSampleRate(a5),d1
+			mulu.l	d1,d0							; d0 = elapsed samples
+			move.l	d0,vmp_DecodedSamples(a5)
+
+			; Update duration if mpega.library has now computed it
+			movea.l	vmp_MP3_Stream(a5),a0
+			move.l	mp3_ms_duration(a0),d0
+			tst.l	d0
+			beq.s	.decoded
+			move.l	d0,vmp_SongDuration(a5)
+			bra.s	.decoded
+
+.notAtStart
+			; Check if genuine EOF error code (-1)
+			cmp.l	#MPEGA_ERR_EOF,d0
+			beq.s	.eof
+
 			; Check if we are close to the end of the song
 			move.l	vmp_DecodedSamples(a5),d0
 			divu.l	vmp_SongSampleRate(a5),d0			; d0 = ElapsedSeconds
 			mulu.l	#1000,d0							; d0 = ElapsedMS
 			
 			move.l	vmp_SongDuration(a5),d1
+			beq.s	.transientError						; If duration unknown (0), don't assume EOF
 			cmp.l	#3000,d1
-			bls.s	.eof								; If song is under 3 seconds, always treat as EOF!
+			bls.s	.eof								; If song is under 3 seconds, treat as EOF!
 			sub.l	#2000,d1
 			cmp.l	d1,d0
-			bhs.s	.eof								; If we are close to the end, treat as EOF!
-			
-			; Transient decode error (e.g. sync lost). Write silence for 1152 samples.
+			bhs.s	.eof								; If within 2 seconds of the end, treat as EOF!
+
+.transientError
+			; Transient decode error (e.g. sync lost mid-stream). Write silence for 1152 samples.
 			movea.l	vmp_PCM_DecodePointer(a5),a2
 			move.l	#1152-1,d1
 .clearLoop	move.l	#0,(a2)+
@@ -292,34 +373,31 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 			bra.s	.checkFull
 			
 .eof
-			; Genuine EOF! Play next song or repeat.
-			move.l	#0,vmp_Playing(a5)
-			move.l	#0,vmp_FramesToDecode(a5)
-			move.l	#VMP_STATUS_IDLE,d0
-			bsr	_SetStatus
-			moveq	#VMP_AUDIO_CHANNEL,d0
-			bsr	_StopAudio
+			; Genuine EOF! Drain remaining audio buffers smoothly without cutting off music
+			clr.l	vmp_FramesToDecode(a5)
 
-			; Check Loop Mode: 1 = Loop Track
-			cmp.l	#1,vmp_PlaylistLoop(a5)
-			bne.s	.nextSong
+			; Check if any samples were decoded into the current inactive buffer
+			move.l	vmp_PCM_ActiveBuffer(a5),d2
+			eor.l	#4,d2							; Decoding buffer is the other buffer
+			lea	vmp_PCM_PlayBufferArray,a0
+			movea.l	(a0,d2.w),a3						; Base of decoding buffer
+			move.l	vmp_PCM_DecodePointer(a5),a2
+			suba.l	a3,a2							; Bytes decoded in this buffer
+			tst.l	a2
+			beq.s	.onlyActiveBuffer
 
-			; Loop Track active! Restart current song depending on PlayingFrom
-			cmp.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
-			beq.s	.repeatPlaylist
-			cmp.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
-			beq.s	.repeatDirlist
-			bra.s	.nextSong
+			; Save length and queue the final partial buffer
+			lea	vmp_PCM_LengthArray,a0
+			move.l	a2,(a0,d2.w)
+			bsr	_QueueBuffer
 
-.repeatPlaylist
-			bsr	_PlaylistClicked
+			; 2 interrupts needed: 1 when active buffer finishes, 1 when queued partial finishes
+			move.l	#2,vmp_EOF_Pending(a5)
 			bra.s	.exit
 
-.repeatDirlist
-			bsr	_DirlistClicked
-			bra.s	.exit
-
-.nextSong	bsr	_MainWdwButtonNext					; Play next song
+.onlyActiveBuffer
+			; No partial buffer; current active buffer is the last one (1 interrupt to finish)
+			move.l	#1,vmp_EOF_Pending(a5)
 			bra.s	.exit
     
 .decoded	add.l	d0,vmp_DecodedSamples(a5)
@@ -355,6 +433,46 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 			bsr	_QueueBuffer
 			
 .exit			movem.l	(sp)+,d0-d3/a0-a3/a6
+			rts
+			
+
+
+			;------------------------------------------------------------
+			; _SongFinished
+			;------------------------------------------------------------
+_SongFinished
+			movem.l	d0-d3/a0-a3/a6,-(sp)
+
+			move.l	#0,vmp_Playing(a5)
+			move.l	#0,vmp_FramesToDecode(a5)
+			move.l	#0,vmp_EOF_Pending(a5)
+			moveq	#VMP_STATUS_IDLE,d0
+			bsr	_SetStatus
+			moveq	#VMP_AUDIO_CHANNEL,d0
+			bsr	_StopAudio
+
+			; Check Loop Mode: 1 = Loop Track
+			cmp.l	#1,vmp_PlaylistLoop(a5)
+			bne.s	.nextSong
+
+			; Loop Track active! Restart current song depending on PlayingFrom
+			cmp.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
+			beq.s	.repeatPlaylist
+			cmp.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
+			beq.s	.repeatDirlist
+			bra.s	.nextSong
+
+.repeatPlaylist
+			bsr	_PlaylistClicked
+			bra.s	.songDone
+
+.repeatDirlist
+			bsr	_DirlistClicked
+			bra.s	.songDone
+
+.nextSong	bsr	_MainWdwButtonNext					; Play next song
+
+.songDone	movem.l	(sp)+,d0-d3/a0-a3/a6
 			rts
 			
 
@@ -550,16 +668,17 @@ _SeekMP3		movem.l	d0-d7/a0-a4/a6,-(sp)
 			LVO	MPEGA_Close
 			move.l	#0,vmp_MP3_Stream(a5)
 			
-			; Reopen stream
-			lea	vmp_FilenameBuffer,a0
+			; Reopen stream using dedicated current song path
+			lea	vmp_CurrentSongPath(a5),a0
 			lea	MP3_Ctrl,a1
 			LVO	MPEGA_Open
 			tst.l	d0
 			beq.w	.exit								; If open failed, fail
 			move.l	d0,vmp_MP3_Stream(a5)
 			
-			; Reset sample counter
+			; Reset sample counter and EOF state
 			move.l	#0,vmp_DecodedSamples(a5)
+			move.l	#0,vmp_EOF_Pending(a5)
 			
 			; Calculate TargetSamples
 			move.l	d5,d0								; d0 = TargetMS
@@ -598,11 +717,8 @@ _SeekMP3		movem.l	d0-d7/a0-a4/a6,-(sp)
 			tst.l	vmp_FramesToDecode(a5)
 			bne.s	.initLoop1
 			
-			; Start playing Buffer A
-			move.l	#0,vmp_PCM_ActiveBuffer(a5)
-			bsr	_PlayMP3
-			
 			; 2. Decode Buffer B (4)
+			move.l	#0,vmp_PCM_ActiveBuffer(a5)
 			move.l	#28,vmp_FramesToDecode(a5)
 			lea	vmp_PCM_PlayBufferArray,a0
 			move.l	4(a0),vmp_PCM_DecodePointer(a5)
@@ -610,7 +726,18 @@ _SeekMP3		movem.l	d0-d7/a0-a4/a6,-(sp)
 			tst.l	vmp_FramesToDecode(a5)
 			bne.s	.initLoop2
 			
+			; Start playing Buffer A
+			move.l	#0,vmp_PCM_ActiveBuffer(a5)
+			clr.l	vmp_Paused(a5)
+			bsr	_PlayMP3
+
+			; Immediately queue Buffer B into hardware registers
+			moveq	#4,d2
+			bsr	_QueueBuffer
+
 			; Clear dynamic signals in OS and vmp_Signals
+			move.w	#$0400,INTREQ
+			tst.w	INTREQR
 			movea.l	4.w,a6
 			moveq	#0,d0
 			move.l	vmp_InterruptMask(a5),d1
@@ -620,10 +747,225 @@ _SeekMP3		movem.l	d0-d7/a0-a4/a6,-(sp)
 			not.l	d0
 			and.l	d0,vmp_Signals
 			
-			; 6. Resume Player & DMA
-			bsr	_ResumePlayer
+			moveq	#VMP_STATUS_PLAYING,d0
+			bsr	_SetStatus
+			move.l	#1,vmp_Playing(a5)
 			
 .exit		movem.l	(sp)+,d0-d7/a0-a4/a6
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _InitBitStreamHook
+			;------------------------------------------------------------
+			; Prepares the Hook structure pointing to _BitStreamHook
+			;------------------------------------------------------------
+
+_InitBitStreamHook	lea	vmp_BitStreamHook,a0
+			clr.l	MLN_SUCC(a0)
+			clr.l	MLN_PRED(a0)
+			move.l	#_BitStreamHook,h_Entry(a0)
+			move.l	#_BitStreamHook,h_SubEntry(a0)
+			clr.l	h_Data(a0)
+			rts
+
+
+
+
+			;------------------------------------------------------------
+			; _BitStreamHook
+			;------------------------------------------------------------
+			; Custom BitStream Access Hook for mpega.library
+			;
+			; Standard Amiga Hook registers:
+			;	a0 = pointer to Hook structure
+			;	a2 = stream handle / object (unused)
+			;	a1 = pointer to MPAACC packet structure
+			;
+			; Returns result in d0
+			;------------------------------------------------------------
+
+_BitStreamHook		movem.l	d1-d7/a0-a6,-(sp)
+			movea.l	vmp_StructPointer,a5			; Always establish a5
+			movea.l	vmp_DosBase(a5),a6
+
+			move.l	MPAACC_FUNC(a1),d0
+			cmp.l	#MPEGA_BSFUNC_OPEN,d0
+			beq.s	.bsOpen
+			cmp.l	#MPEGA_BSFUNC_CLOSE,d0
+			beq.s	.bsClose
+			cmp.l	#MPEGA_BSFUNC_READ,d0
+			beq.s	.bsRead
+			cmp.l	#MPEGA_BSFUNC_SEEK,d0
+			beq.s	.bsSeek
+
+			moveq	#0,d0
+			bra.w	.bsExit
+
+			;--- BSFUNC_OPEN ---
+.bsOpen			; Close any previous handle that may linger
+			tst.l	vmp_BSFileHandle(a5)
+			beq.s	.doOpen
+			move.l	vmp_BSFileHandle(a5),d1
+			LVO	Close
+			clr.l	vmp_BSFileHandle(a5)
+
+.doOpen			clr.l	vmp_BSOffset(a5)
+			move.l	MPAACC_OPEN_STREAM_NAME(a1),d1
+			move.l	#MODE_OLDFILE,d2
+			LVO	Open
+			move.l	d0,vmp_BSFileHandle(a5)
+			bne.s	.openedOk
+			moveq	#0,d0							; Return 0 on failure
+			bra.w	.bsExit
+
+.openedOk		; Determine total file size: Seek to end
+			move.l	vmp_BSFileHandle(a5),d1
+			moveq	#0,d2
+			moveq	#OFFSET_END,d3
+			LVO	Seek
+			; Seek back to beginning and get total file length
+			move.l	vmp_BSFileHandle(a5),d1
+			moveq	#0,d2
+			moveq	#OFFSET_BEGINNING,d3
+			LVO	Seek
+			move.l	d0,d7							; d7 = total file size
+
+			; Read first 10 bytes to inspect for ID3v2 header
+			lea	-12(sp),sp						; Allocate 12 bytes on stack
+			move.l	vmp_BSFileHandle(a5),d1
+			move.l	sp,d2
+			moveq	#10,d3
+			LVO	Read
+			cmp.l	#10,d0
+			bne.s	.noID3
+
+			; Check for "ID3" ($49, $44, $33)
+			cmp.b	#'I',(sp)
+			bne.s	.noID3
+			cmp.b	#'D',1(sp)
+			bne.s	.noID3
+			cmp.b	#'3',2(sp)
+			bne.s	.noID3
+
+			; ID3v2 detected! Parse 28-bit synchsafe tag length from bytes 6-9:
+			; tagSize = (b[6]<<21) | (b[7]<<14) | (b[8]<<7) | b[9]
+			moveq	#0,d0
+			move.b	6(sp),d0
+			and.w	#$7f,d0
+			lsl.l	#7,d0
+			move.b	7(sp),d1
+			and.w	#$7f,d1
+			or.l	d1,d0
+			lsl.l	#7,d0
+			move.b	8(sp),d1
+			and.w	#$7f,d1
+			or.l	d1,d0
+			lsl.l	#7,d0
+			move.b	9(sp),d1
+			and.w	#$7f,d1
+			or.l	d1,d0
+
+			; Total tag size = tagSize + 10 (header)
+			add.l	#10,d0
+
+			; Check if ID3v2.4 footer flag (bit 4 of byte 5) is set
+			btst	#4,5(sp)
+			beq.s	.saveID3
+			add.l	#10,d0							; Add 10 bytes for footer
+
+.saveID3		; Verify that the ID3 size is smaller than the total file size
+			cmp.l	d7,d0
+			bhs.s	.noID3
+			move.l	d0,vmp_BSOffset(a5)
+
+.noID3			lea	12(sp),sp						; Restore stack
+
+			; Seek to vmp_BSOffset
+			move.l	vmp_BSFileHandle(a5),d1
+			move.l	vmp_BSOffset(a5),d2
+			moveq	#OFFSET_BEGINNING,d3
+			LVO	Seek
+
+			; Read up to 2048 bytes into temporary buffer to find MPEG frame sync
+			move.l	vmp_BSFileHandle(a5),d1
+			lea	vmp_PCM_PlayBuffer1,a0
+			move.l	a0,d2
+			move.l	#2048,d3
+			LVO	Read
+			move.l	d0,d6
+			subq.l	#2,d6
+			ble.s	.seekAudioStart
+
+			lea	vmp_PCM_PlayBuffer1,a0
+			moveq	#0,d2
+.syncLoop		cmp.b	#$ff,(a0)
+			bne.s	.nextSync
+			move.b	1(a0),d0
+			and.b	#$e0,d0
+			cmp.b	#$e0,d0
+			bne.s	.nextSync
+			move.b	1(a0),d0
+			and.b	#$06,d0
+			bne.s	.syncFound
+.nextSync		addq.l	#1,a0
+			addq.l	#1,d2
+			subq.l	#1,d6
+			bgt.s	.syncLoop
+			bra.s	.seekAudioStart
+
+.syncFound		add.l	d2,vmp_BSOffset(a5)
+
+.seekAudioStart		; Seek file handle to the actual audio start offset
+			move.l	vmp_BSFileHandle(a5),d1
+			move.l	vmp_BSOffset(a5),d2
+			moveq	#OFFSET_BEGINNING,d3
+			LVO	Seek
+
+			; Stream size exposed to mpega.library is (totalSize - vmp_BSOffset)
+			move.l	d7,d0
+			sub.l	vmp_BSOffset(a5),d0
+			move.l	d0,MPAACC_OPEN_STREAM_SIZE(a1)
+			moveq	#1,d0							; Return TRUE (success)
+			bra.s	.bsExit
+
+			;--- BSFUNC_CLOSE ---
+.bsClose		tst.l	vmp_BSFileHandle(a5)
+			beq.s	.bsCloseDone
+			move.l	vmp_BSFileHandle(a5),d1
+			LVO	Close
+			clr.l	vmp_BSFileHandle(a5)
+			clr.l	vmp_BSOffset(a5)
+.bsCloseDone		moveq	#1,d0
+			bra.s	.bsExit
+
+			;--- BSFUNC_READ ---
+.bsRead			tst.l	vmp_BSFileHandle(a5)
+			beq.s	.readFail
+			move.l	vmp_BSFileHandle(a5),d1
+			move.l	MPAACC_READ_BUFFER(a1),d2
+			move.l	MPAACC_READ_NUM_BYTES(a1),d3
+			LVO	Read
+			bra.s	.bsExit
+.readFail		moveq	#0,d0
+			bra.s	.bsExit
+
+			;--- BSFUNC_SEEK ---
+.bsSeek			tst.l	vmp_BSFileHandle(a5)
+			beq.s	.seekFail
+			move.l	MPAACC_SEEK_ABS_BYTE_SEEK_POS(a1),d2
+			add.l	vmp_BSOffset(a5),d2				; Translate to physical file offset
+			move.l	vmp_BSFileHandle(a5),d1
+			moveq	#OFFSET_BEGINNING,d3
+			LVO	Seek
+			cmp.l	#-1,d0
+			beq.s	.seekFail
+			moveq	#0,d0							; 0 = success
+			bra.s	.bsExit
+.seekFail		moveq	#-1,d0
+
+.bsExit			movem.l	(sp)+,d1-d7/a0-a6
 			rts
 
 
@@ -635,29 +977,32 @@ _SeekMP3		movem.l	d0-d7/a0-a4/a6,-(sp)
 
 MP3_Ctrl:
 			; Hook
-			dc.l 0
+			dc.l vmp_BitStreamHook
 			; Layer 1/2:
 			; - Force mono?	
 			dc.w 0
 			; - Mono output params(high quality) 
 			dc.w 1, 2
-			dc.l 44100
+			dc.l 48000
 			; - Stereo output params(high quality)	
 			dc.w 1, 2
-			dc.l 44100
+			dc.l 48000
 			; Layer 3:
 			; - Force mono:
 			dc.w 0
 			; - Mono output params(high quality)
 			dc.w 1, 2
-			dc.l 44100
+			dc.l 48000
 			; - Stereo output params(high quality)	
 			dc.w 1, 2
-			dc.l 44100
+			dc.l 48000
 			; Check mpeg?	
-			dc.w 1
+			dc.w 0
 			; Buffer size(samples)
 			dc.l VMP_MP3BUFFERSIZE
+
+			even
+vmp_BitStreamHook	ds.b	h_SIZEOF
 
 			even
 vmp_DecodeStreamArray	dc.l	vmp_DecodeStream1

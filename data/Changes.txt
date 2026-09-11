@@ -1,9 +1,7 @@
 v1.1 - xx mon 2026
 - New buttons: Gipsy by HANsolo
-
-
-
+- Command line arguments for playing specified song
 
 
 V1.0 - 31. May 2026
-- First release
+- Initial release

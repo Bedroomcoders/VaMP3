@@ -1,7 +1,7 @@
 **	File: vaMP3.s 
-**	Platgorm: Apollo Vampire with MUI
+**	Platgorm: Apollo V4 with MUI
 **	Assemble command:
-**				vasmm68k_mot vaMP3.s -Fhunkexe -no-opt
+**				vasmm68k_mot VaMP3.s -Fhunkexe -nosym -opt-allbra
 **	
 **	Author: Tomas Jacobsen - Bedroomcoders.com
 **	Description: 
@@ -57,8 +57,6 @@
 			LONG	vmp_SongSampleRate
 			LONG	vmp_DecodedSamples
 			LONG	vmp_SliderGrabbed
-			APTR	vmp_Intui_Window
-			APTR	vmp_Intui_UserPort
 			LONG	vmp_InterruptSignal
 			STRUCT	vmp_InterruptStruct,IS_SIZE
 			APTR	vmp_OldInterrupt
@@ -178,6 +176,10 @@
 			LONG	vmp_LastTimeSecs
 			LONG	vmp_LastSliderVal
 			LONG	vmp_Autoloading
+			STRUCT	vmp_CurrentSongPath,512
+			LONG	vmp_EOF_Pending
+			LONG	vmp_BSFileHandle
+			LONG	vmp_BSOffset
 		LABEL	vmp_SIZEOF
 
 
@@ -211,9 +213,17 @@ _Startup		movem.l	d0/a0,-(sp)
 			LVO	GetMsg
 			move.l	d0,vmp_WorkbenchMessage
 
+			addq.l	#8,sp				; Drop pushed d0/a0 from stack
+			clr.l	vmp_ArgLength
+			clr.l	vmp_ArgString
+			bra.s	.runInit
+
 .fromCLI		movem.l	(sp)+,d0/a0
 
-			bsr	_Init
+			move.l	d0,vmp_ArgLength
+			move.l	a0,vmp_ArgString
+			
+.runInit		bsr	_Init
 
 			move.l	d0,-(sp)
 
@@ -250,11 +260,19 @@ _Init			move.l	4.w,a6
 			moveq	#20,d0							; return FAIL if already running
 			rts
 
-.notRunning		move.l	#vmp_SIZEOF,d0
-			move.l	#MEMF_PUBLIC|MEMF_CLEAR,d1
-			LVO	AllocMem
+.notRunning		; Allocate pooled memory
+			move.l	#MEMF_PUBLIC|MEMF_CLEAR,d0
+			move.l	#32768,d1			; 32KK puddle size
+			move.l	#8192,d2			; 8K threshold size
+			LVO	CreatePool
+			move.l	d0,vmp_MemoryPool
+			beq.s	.allocError
+
+			move.l	#vmp_SIZEOF,d0
+			movea.l	vmp_MemoryPool,a0
+			LVO	AllocPooled
 			tst.l	d0
-			beq	.allocError
+			beq.w	.allocsignalError
 			movea.l	d0,a5							; Internal VMP Struct in a5 at all times
 			move.l	d0,vmp_StructPointer
 			
@@ -425,19 +443,7 @@ _Init			move.l	4.w,a6
 
 			; Create Notifications and Hooks
 .guiBuilt		bsr	_CreateHooks
-
-			; Extract Intuition WindowBase from MUI Window
-			movea.l	vmp_IntuitionBase(a5),a6
-			movea.l	vmp_MUI_MainWindow(a5),a0
-			move.l	#MUIA_Window_Window,d0
-			lea	vmp_Intui_Window(a5),a1
-			LVO	GetAttr
-			tst.l	d0	
-			bne.s	.wdwExtracted
-			SHOWALERT	txt_WDWAlert
-			bra.s	.cleanup
-.wdwExtracted		movea.l	vmp_Intui_Window(a5),a0
-			move.l	wd_UserPort(a0),vmp_Intui_UserPort(a5)			; Get UserPort the regular way
+			bsr	_InitBitStreamHook
 
 			; Combine interrupt signal with MUI signal
 			move.l	vmp_Signals,d0
@@ -462,7 +468,20 @@ _Init			move.l	4.w,a6
 			
 			move.w	#$8400,$dff09a
 
+			; Check for command line argument, or restore saved state
+			bsr	_ParseArgument
+			tst.l	d0
+			beq.s	.stateRestore
 
+			movea.l	vmp_ArgString,a0
+			bsr	_NewMP3
+			bra.s	.startEventLoop
+
+.stateRestore		lea	txt_DefaultPlaylistPath,a0
+			bsr	_LoadPlaylistFromFile
+			bsr	_RestoreStateOnStartup
+
+.startEventLoop
 			; EventHandler is the mainloop
 			bsr	_EventHandler
 
@@ -484,7 +503,7 @@ _Init			move.l	4.w,a6
 			move.w	#$0400,$dff09a
 			movea.l	4.w,a6
 			moveq	#INTB_AUD3,d0
-			lea	vmp_OldInterrupt(a5),a1
+			movea.l	vmp_OldInterrupt(a5),a1
 			LVO	SetIntVector
 
 			; Stop playing audio and close any active stream
@@ -498,20 +517,17 @@ _Init			move.l	4.w,a6
 			movea.l	vmp_MUI_Application(a5),a0
 			LVO	MUI_DisposeObject		
 
-.cleanup		movea.l	4.w,a6
+.cleanup		move.l	vmp_CustomButtonClass(a5),d0
+			beq.s	.skipDeleteClass
+			move.l	vmp_MUIBase(a5),d1
+			beq.s	.skipDeleteClass
+			movea.l	d1,a6
+			movea.l	d0,a0
+			LVO	MUI_DeleteCustomClass
+			clr.l	vmp_CustomButtonClass(a5)
+.skipDeleteClass
+			movea.l	4.w,a6
 			
-			movea.l	vmp_ImgBuffer_Play(a5),a1
-			jsr	_LVOFreeVec(a6)
-			
-			movea.l	vmp_ImgBuffer_Pause(a5),a1
-			jsr	_LVOFreeVec(a6)
-			
-			movea.l	vmp_ImgBuffer_Next(a5),a1
-			jsr	_LVOFreeVec(a6)
-			
-			movea.l	vmp_ImgBuffer_Prev(a5),a1
-			jsr	_LVOFreeVec(a6)
-
 			CLOSELIB	Datatypes
 			CLOSELIB	Dos
 			CLOSELIB	MPEGA
@@ -540,11 +556,69 @@ _Init			move.l	4.w,a6
 			LVO	FreeSignal
 
 .allocsignalError	movea.l	4.w,a6
-			movea.l	a5,a1
-			move.l	#vmp_SIZEOF,d0
-			LVO	FreeMem
+			movea.l	vmp_MemoryPool,a0
+			tst.l	a0
+			beq.s	.allocError
+			LVO	DeletePool
 
 .allocError		moveq	#0,d0
+			rts
+
+
+
+			;------------------------------------------------------------
+			; _ParseArgument
+			;
+			; Output:
+			;	d0 = -1 Success / 0 Fail
+			;------------------------------------------------------------
+
+_ParseArgument		movem.l		d1-d2/a0-a1,-(sp)
+
+			moveq		#0,d2
+			
+			move.l		vmp_ArgLength,d0
+			beq.s		.done
+			cmp.l		#1,d0
+			beq.s		.done
+			
+			movea.l		vmp_ArgString,a0
+.moveForward		move.b		(a0)+,d1
+			beq.s		.done
+			cmp.b		#' ',d1
+			beq.s		.moveForward
+			cmp.b		#9,d1				; Tab
+			beq.s		.moveForward
+			cmp.b		#34,d1				; Double quote
+			beq.s		.moveForward
+			suba.l		#1,a0
+
+			movea.l		vmp_ArgString,a1
+			move.l		a0,vmp_ArgString
+
+			add.l		d0,a1
+			
+.moveBack		suba.l		#1,a1
+			cmpa.l		a0,a1
+			bcs.s		.done
+			move.b		(a1),d1
+			beq.s		.moveBack
+			cmp.b		#' ',d1
+			beq.s		.moveBack
+			cmp.b		#9,d1
+			beq.s		.moveBack
+			cmp.b		#10,d1
+			beq.s		.moveBack
+			cmp.b		#34,d1
+			beq.s		.terminate
+
+			adda.l		#1,a1
+.terminate		move.b		#0,(a1)			
+
+			moveq		#-1,d2
+
+.done			move.l		d2,d0
+			movem.l		(sp)+,d1-d2/a0-a1
 			rts
 
 
@@ -608,6 +682,18 @@ _EventHandler		movem.l	d0-d2/a0-a2/a6,-(sp)
 			not.l	d1
 			and.l	d1,vmp_Signals
 
+			; Check if EOF is pending
+			tst.l	vmp_EOF_Pending(a5)
+			beq.s	.normalAudioInterrupt
+
+			subq.l	#1,vmp_EOF_Pending(a5)
+			bne.w	.loop
+
+			; All audio buffers drained! Cleanly advance/loop song
+			bsr	_SongFinished
+			bra.w	.loop
+
+.normalAudioInterrupt
 			; Setup Decoding Pointers sequentially in Main Task
 			move.l	#28,vmp_FramesToDecode(a5)
 			
@@ -713,15 +799,15 @@ _LoadARGBImage		movem.l	d3-d7/a2-a4/a6,-(sp)
 			move.w	2(a0),d1
 			move.l	d1,-12(a4)
 			
-			; AllocVec
+			; AllocPooled
 			move.l	d0,d1
 			move.l	-12(a4),d2
 			mulu.w	d2,d1			; d1 = w * h
 			lsl.l	#2,d1			; d1 = w * h * 4
 			move.l	d1,d0
-			move.l	#MEMF_PUBLIC|MEMF_CLEAR,d1
+			movea.l	vmp_MemoryPool,a0
 			movea.l	4.w,a6
-			jsr	_LVOAllocVec(a6)
+			jsr	_LVOAllocPooled(a6)
 			move.l	d0,-4(a4)
 			beq.s	.dtError
 			
@@ -798,7 +884,7 @@ _BuildImageFilename	movem.l	d0-d1/a0-a3/a6,-(sp)
 			movea.l	vmp_DosBase(a5),a6
 			move.l	#vmp_FilenameBuffer,d1
 			move.l	a3,d2
-			move.l	#255,d3
+			move.l	#512,d3
 			LVO	AddPart
 			
 			movem.l	(sp)+,d0-d1/a0-a3/a6
@@ -820,15 +906,18 @@ vmp_DatatypesName	dc.b	"datatypes.library",0
 vmp_TimerDeviceName	dc.b	"timer.device",0
 vmp_UniquePortName	dc.b	"VAMP3.1",0
 
-vmp_VersionString	dc.b	"$VER: VaMP3 v",VAMP3_VERSION+"0",".",VAMP3_REVISION+"0"," Copyright (c) 2026 Bedroomcoders.com"
+vmp_VersionString	dc.b	"$VER: VaMP3 v",VAMP3_VERSION+"0",".",VAMP3_REVISION+"0"," Copyright (c) 2026 Bedroomcoders.com",0
 
 			even
 vmp_TimeBuffer		ds.b	32
-vmp_NameBuffer		ds.b	128
+vmp_NameBuffer		ds.b	256
 			even
 
 vmp_StructPointer	dc.l	0
 vmp_WorkbenchMessage	dc.l	0
+vmp_ArgLength		dc.l	0
+vmp_ArgString		dc.l	0
+vmp_MemoryPool		dc.l	0
 
 
 			; Image Paths
@@ -855,7 +944,6 @@ txt_DosAlert		dc.b	"Could not open dos.library",0
 txt_DTAlert		dc.b	"Could not open datatypes.library",0
 txt_GUIAlert		dc.b	"Error building GUI",0
 txt_ClassAlert		dc.b	"Failed to create Custom Class!",0
-txt_WDWAlert		dc.b	"Could not extract WindowBase",0
 txt_MEMAlert		dc.b	"Could not allocate memory",0
 txt_AlertTitle		dc.b	"Alert!",0
 txt_AlertOK		dc.b	"OK",0

@@ -114,12 +114,6 @@ _BuildGui		movem.l	d2-d3/d5/a0-a2/a6,-(sp)
 			STACKVALTAG	1,MUIA_Window_Open
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 
-			; Auto-load playlist from PROGDIR:vaMP3.playlist
-			lea	txt_DefaultPlaylistPath,a0
-			bsr	_LoadPlaylistFromFile
-			bsr	_RestoreStateOnStartup
-
-
 			moveq	#0,d5
 
 .error			move.l	d5,d0
@@ -1015,15 +1009,42 @@ _MainWdwButtonPlay
 			bne.s	.togglePause
 
 			; Player is idle! Start playing the selected item
+			cmp.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
+			beq.s	.tryPlaylist
+
+			; Check Dirlist first
 			movea.l	vmp_IntuitionBase(a5),a6
 			movea.l	vmp_MUI_DirlistListview(a5),a0
 			move.l	#MUIA_List_Active,d0
 			lea	vmp_PlayingIndex(a5),a1
 			LVO	GetAttr
 			cmp.l	#MUIV_List_Active_Off,vmp_PlayingIndex(a5)
-			beq.s	.done
+			bne.s	.playDirlist
 
-			; Play it!
+			; Fallback to Playlist if Dirlist has no active item
+.tryPlaylist
+			tst.l	vmp_PlaylistCount(a5)
+			beq.s	.done
+			movea.l	vmp_IntuitionBase(a5),a6
+			movea.l	vmp_MUI_PlaylistList(a5),a0
+			move.l	#MUIA_List_Active,d0
+			lea	vmp_PlayingIndex(a5),a1
+			LVO	GetAttr
+			cmp.l	#MUIV_List_Active_Off,vmp_PlayingIndex(a5)
+			bne.s	.playPlaylist
+
+			; Default to playlist index 0 if none active
+			clr.l	vmp_PlayingIndex(a5)
+			movea.l	vmp_MUI_PlaylistList(a5),a0
+			INITSTACKTAG
+			STACKVALTAG	0, MUIA_List_Active
+			CALLSTACKTAG	_LVOSetAttrsA,a1
+
+.playPlaylist
+			bsr.w	_PlaylistClicked
+			bra.s	.done
+
+.playDirlist
 			bsr.w	_DirlistClicked
 			bra.s	.done
 
@@ -1235,7 +1256,6 @@ _MainWdwButtonPrevious
 			cmp.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
 			bne.s	.play
 
-			movea.l	d0,a0
 			move.l	fib_DirEntryType(a0),d0
 			bgt.s	.loopPrev						; It is a directory! Keep moving up!
 
@@ -1336,26 +1356,20 @@ _MainWdwGotAppMessage	movem.l	d1-d3/a0-a2/a5-a6,-(sp)
 			movea.l	vmp_DosBase(a5),a6
 			move.l	wa_Lock(a2),d1
 			move.l	#vmp_FilenameBuffer,d2
-			move.l	#255,d3
+			move.l	#512,d3
 			LVO	NameFromLock
 			tst.l	d0
 			beq.s	.done
 			
 			move.l	#vmp_FilenameBuffer,d1
 			move.l	wa_Name(a2),d2
-			move.l	#255,d3
+			move.l	#512,d3
 			LVO	AddPart
 			tst.l	d0
 			beq.s	.done
 			
-			bsr	_PausePlayer
-
 			lea	vmp_FilenameBuffer,a0
 			bsr	_NewMP3
-			tst.l	d0
-			beq.s	.done
-			
-			bsr	_ResumePlayer
 			
 .done			moveq	#0,d0
 			movem.l	(sp)+,d1-d3/a0-a2/a5-a6
@@ -1470,12 +1484,8 @@ _DirlistClicked		movem.l	a0-a1/a5-a6,-(sp)
 			LVO	GetAttr
 
 			move.l	#VMP_PLAYINGFROM_DIRLIST,vmp_PlayingFrom(a5)
-			bsr	_PausePlayer
-			movea.l		vmp_MUI_TempFilePointer(a5),a0
+			movea.l	vmp_MUI_TempFilePointer(a5),a0
 			bsr	_NewMP3
-			tst.l	d0
-			beq.s	.done
-			bsr	_ResumePlayer
 			bra.s	.done
 
 .isDirectory		movea.l	vmp_IntuitionBase(a5),a6
@@ -1711,13 +1721,18 @@ _PlaylistAddSingleFile
 			tst.l	d0
 			beq.w	.done
 
-			; 3. Copy full path to ple_Path
+			; 3. Copy full path to ple_Path (bounded, max 511 chars)
 			movea.l	a4,a0
 			lea	ple_Path(a3),a1
-.copyPath		move.b	(a0)+,(a1)+
+			move.w	#511,d0
+.copyPath		move.b	(a0)+,d1
+			beq.s	.nullPath
+			move.b	d1,(a1)+
+			subq.w	#1,d0
 			bne.s	.copyPath
+.nullPath		clr.b	(a1)
 
-			; 4. Extract filename from path for ple_Name
+			; 4. Extract filename from path for ple_Name (bounded, max 255 chars)
 			movea.l	a4,a0
 .scanEnd		tst.b	(a0)+
 			bne.s	.scanEnd
@@ -1733,8 +1748,13 @@ _PlaylistAddSingleFile
 .foundSlash		addq.l	#1,a0					; skip slash
 .foundStart
 			lea	ple_Name(a3),a1
-.copyName		move.b	(a0)+,(a1)+
+			move.w	#255,d0
+.copyName		move.b	(a0)+,d1
+			beq.s	.nullName
+			move.b	d1,(a1)+
+			subq.w	#1,d0
 			bne.s	.copyName
+.nullName		clr.b	(a1)
 
 			; 5. Insert into MUI List
 			movea.l	vmp_MUI_PlaylistList(a5),a2
@@ -1796,18 +1816,23 @@ _PlaylistAddSingleDir
 			bra.s	.loopEntries
 
 .fileEntry
-			; Copy folder path to stack buffer
-			suba.l	#256,sp
+			; Copy folder path to stack buffer (max 511 chars + null)
+			suba.l	#512,sp
 			movea.l	sp,a2
 			movea.l	a4,a0
 			movea.l	a2,a1
-.copyPathLocal1		move.b	(a0)+,(a1)+
+			move.w	#511,d0
+.copyPathLocal1		move.b	(a0)+,d1
+			beq.s	.copyLocalDone1
+			move.b	d1,(a1)+
+			subq.w	#1,d0
 			bne.s	.copyPathLocal1
+.copyLocalDone1		clr.b	(a1)
 
 			move.l	a2,d1
 			lea	fib_FileName(a3),a0
 			move.l	a0,d2
-			move.l	#256,d3
+			move.l	#512,d3
 			LVO	AddPart
 			tst.l	d0
 			beq.s	.fileDone
@@ -1815,22 +1840,27 @@ _PlaylistAddSingleDir
 			movea.l	sp,a0
 			bsr	_PlaylistAddSingleFile
 
-.fileDone		adda.l	#256,sp
+.fileDone		adda.l	#512,sp
 			bra.s	.loopEntries
 
 .dirEntry
-			suba.l	#256,sp
+			suba.l	#512,sp
 			movea.l	sp,a2
 
 			movea.l	a4,a0
 			movea.l	a2,a1
-.copyPathLocal2		move.b	(a0)+,(a1)+
+			move.w	#511,d0
+.copyPathLocal2		move.b	(a0)+,d1
+			beq.s	.copyLocalDone2
+			move.b	d1,(a1)+
+			subq.w	#1,d0
 			bne.s	.copyPathLocal2
+.copyLocalDone2		clr.b	(a1)
 
 			move.l	a2,d1
 			lea	fib_FileName(a3),a0
 			move.l	a0,d2
-			move.l	#256,d3
+			move.l	#512,d3
 			LVO	AddPart
 			tst.l	d0
 			beq.s	.dirDone
@@ -1838,7 +1868,7 @@ _PlaylistAddSingleDir
 			movea.l	a2,a0
 			bsr	_PlaylistAddSingleDir
 
-.dirDone		adda.l	#256,sp
+.dirDone		adda.l	#512,sp
 			bra.w	.loopEntries
 
 .freeFib		movea.l	vmp_DosBase(a5),a6
@@ -1894,6 +1924,25 @@ _PlaylistButtonRemove
 			bpl.s	.countOk
 			move.l	#0,vmp_PlaylistCount(a5)
 .countOk
+			; Check if playing from playlist and adjust vmp_PlayingIndex
+			cmp.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
+			bne.s	.updateStatus
+
+			cmp.l	vmp_PlayingIndex(a5),d2
+			bgt.s	.updateStatus				; Removed item was after currently playing track
+			blt.s	.adjustIndex				; Removed item was before currently playing track
+
+			; Removed item WAS the currently playing track! Stop playback
+			bsr	_CloseMP3
+			moveq	#VMP_STATUS_IDLE,d0
+			bsr	_SetStatus
+
+.adjustIndex
+			subq.l	#1,vmp_PlayingIndex(a5)
+			bpl.s	.updateStatus
+			clr.l	vmp_PlayingIndex(a5)
+
+.updateStatus
 			; 6. Update status bar
 			bsr	_PlaylistUpdateStatus
 
@@ -2042,14 +2091,14 @@ _LoadPlaylistFromFile	movem.l	d2-d7/a2-a6,-(sp)
 			; 2. Clear the current playlist first
 			bsr	_PlaylistButtonClear
 
-			; 3. Allocate a 512-byte buffer on the stack for reading lines
-			suba.l	#512,sp
+			; 3. Allocate a 1024-byte buffer on the stack for reading lines
+			suba.l	#1024,sp
 			movea.l	sp,a3					; a3 = line buffer
 
 .readLoop		movea.l	vmp_DosBase(a5),a6
 			move.l	d7,d1					; file handle
 			move.l	a3,d2					; buffer
-			move.l	#512,d3					; max size
+			move.l	#1024,d3				; max size
 			LVO	FGets
 			tst.l	d0
 			beq.s	.eof					; EOF or error
@@ -2086,7 +2135,7 @@ _LoadPlaylistFromFile	movem.l	d2-d7/a2-a6,-(sp)
 
 			bra.s	.readLoop
 
-.eof			adda.l	#512,sp					; free stack buffer
+.eof			adda.l	#1024,sp				; free stack buffer
 
 			; 6. Close the file
 			movea.l	vmp_DosBase(a5),a6
@@ -2394,6 +2443,19 @@ _PlaylistButtonUp
 			subq.l	#1,d3
 			DOMETHOD a2, #MUIM_List_Exchange, d2, d3
 
+			; If playing from playlist, update vmp_PlayingIndex if involved in exchange
+			cmp.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
+			bne.s	.skipUpIndex
+			cmp.l	vmp_PlayingIndex(a5),d2
+			bne.s	.checkUpOther
+			move.l	d3,vmp_PlayingIndex(a5)
+			bra.s	.skipUpIndex
+.checkUpOther
+			cmp.l	vmp_PlayingIndex(a5),d3
+			bne.s	.skipUpIndex
+			move.l	d2,vmp_PlayingIndex(a5)
+.skipUpIndex
+
 			movea.l	vmp_IntuitionBase(a5),a6
 			movea.l	a2,a0
 			INITSTACKTAG
@@ -2423,6 +2485,8 @@ _PlaylistButtonDown
 			move.l	vmp_TempVariable(a5),d2
 			cmp.l	#MUIV_List_Active_Off,d2
 			beq.s	.done
+			tst.l	d2
+			beq.s	.done
 
 			move.l	vmp_PlaylistCount(a5),d3
 			subq.l	#1,d3
@@ -2432,6 +2496,19 @@ _PlaylistButtonDown
 			move.l	d2,d3
 			addq.l	#1,d3
 			DOMETHOD a2, #MUIM_List_Exchange, d2, d3
+
+			; If playing from playlist, update vmp_PlayingIndex if involved in exchange
+			cmp.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
+			bne.s	.skipDownIndex
+			cmp.l	vmp_PlayingIndex(a5),d2
+			bne.s	.checkDownOther
+			move.l	d3,vmp_PlayingIndex(a5)
+			bra.s	.skipDownIndex
+.checkDownOther
+			cmp.l	vmp_PlayingIndex(a5),d3
+			bne.s	.skipDownIndex
+			move.l	d2,vmp_PlayingIndex(a5)
+.skipDownIndex
 
 			movea.l	vmp_IntuitionBase(a5),a6
 			movea.l	a2,a0
@@ -2466,14 +2543,14 @@ _PlaylistGotAppMessage
 .loopArgs		movea.l	vmp_DosBase(a5),a6
 			move.l	wa_Lock(a2),d1
 			move.l	#vmp_FilenameBuffer,d2
-			move.l	#255,d3
+			move.l	#512,d3
 			LVO	NameFromLock
 			tst.l	d0
 			beq.s	.nextArg
 
 			move.l	#vmp_FilenameBuffer,d1
 			move.l	wa_Name(a2),d2
-			move.l	#255,d3
+			move.l	#512,d3
 			LVO	AddPart
 			tst.l	d0
 			beq.s	.nextArg
@@ -2654,13 +2731,9 @@ _PlaylistClicked	movem.l	a0-a1/a5-a6,-(sp)
 			move.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
 
 			; 5. Load and play MP3
-			bsr	_PausePlayer
 			move.l	vmp_TempVariable(a5),a0
 			lea	ple_Path(a0),a0
 			bsr	_NewMP3
-			tst.l	d0
-			beq.s	.done
-			bsr	_ResumePlayer
 
 .done			moveq	#0,d0
 			movem.l	(sp)+,a0-a1/a5-a6
@@ -3676,11 +3749,11 @@ vmp_Hook_MainWdwButtonPlay	ds.b	MLN_SIZE
 				dc.l	0,0							; h_SubEntry, h_data
 
 vmp_Hook_MainWdwButtonNext	ds.b	MLN_SIZE
-				dc.l	_MainWdwButtonNext					; h_entry - Pointing to routine to be exeh^ed
+				dc.l	_MainWdwButtonNext					; h_entry - Pointing to routine to be executed
 				dc.l	0,0							; h_SubEntry, h_data
 
 vmp_Hook_MainWdwButtonPrevious	ds.b	MLN_SIZE
-				dc.l	_MainWdwButtonPrevious					; h_entry - Pointing to routine to be exeh^ed
+				dc.l	_MainWdwButtonPrevious					; h_entry - Pointing to routine to be executed
 				dc.l	0,0							; h_SubEntry, h_data
 
 vmp_Hook_MainWdwButtonPlaylist	ds.b	MLN_SIZE
@@ -3805,7 +3878,7 @@ vmp_EmptyTxt		dc.b	$1b,"cNo song loaded",0
 vmp_DefaultTimeTxt	dc.b	$1b,"c00:00 / 00:00",0
 
 				even
-vmp_FilenameBuffer		ds.b	256
+vmp_FilenameBuffer		ds.b	512
 
 
 				; Status messages
