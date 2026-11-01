@@ -267,7 +267,7 @@ _Init			move.l	4.w,a6
 			move.l	#8192,d2			; 8K threshold size
 			LVO	CreatePool
 			move.l	d0,vmp_MemoryPool
-			beq.s	.allocError
+			beq.w	.allocError
 
 			move.l	#vmp_SIZEOF,d0
 			movea.l	vmp_MemoryPool,a0
@@ -349,7 +349,7 @@ _Init			move.l	4.w,a6
 			OPENLIB	Intuition,0
 			beq	.cleanup
 
-			OPENLIB	CyberGfx, 41
+			OPENLIB	CyberGfx,41
 			
 			bne.s	.cgxOpened
 			SHOWALERT	txt_CGXAlert

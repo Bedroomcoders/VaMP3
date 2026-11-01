@@ -299,12 +299,12 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 			move.l	#vmp_DecodeStreamArray,a1
 			LVO	MPEGA_Decode
 			tst.l	d0
-			bgt.s	.decoded
+			bgt.w	.decoded
 			
 			; Decode failed (d0 <= 0)!
 			; Check if this is at the start of the song (sync error from ID3v2 tags / embedded JPEG)
 			tst.l	vmp_DecodedSamples(a5)
-			bne.s	.notAtStart
+			bne.w	.notAtStart
 			
 			; We are at track start and MPEGA_Decode failed!
 			; Perform 100ms seek-based resynchronization loop
@@ -357,7 +357,7 @@ _DecodeFrames		movem.l	d0-d3/a0-a3/a6,-(sp)
 			move.l	d1,vmp_SongDuration(a5)
 .syncDurationOk
 			move.l	#1152,d0						; 1 frame decoded by MPEGA_Decode
-			bra.s	.decoded
+			bra.w	.decoded
 
 .notAtStart
 			; Check if genuine EOF error code (-1)
@@ -811,11 +811,11 @@ _BitStreamHook		movem.l	d1-d7/a0-a6,-(sp)
 			cmp.l	#MPEGA_BSFUNC_OPEN,d0
 			beq.s	.bsOpen
 			cmp.l	#MPEGA_BSFUNC_CLOSE,d0
-			beq.s	.bsClose
+			beq.w	.bsClose
 			cmp.l	#MPEGA_BSFUNC_READ,d0
-			beq.s	.bsRead
+			beq.w	.bsRead
 			cmp.l	#MPEGA_BSFUNC_SEEK,d0
-			beq.s	.bsSeek
+			beq.w	.bsSeek
 
 			moveq	#0,d0
 			bra.w	.bsExit
@@ -1000,19 +1000,19 @@ MP3_Ctrl:
 			; - Force mono?	
 			dc.w 0
 			; - Mono output params(high quality) 
-			dc.w 1, 2
+			dc.w 1,2
 			dc.l 48000
 			; - Stereo output params(high quality)	
-			dc.w 1, 2
+			dc.w 1,2
 			dc.l 48000
 			; Layer 3:
 			; - Force mono:
 			dc.w 0
 			; - Mono output params(high quality)
-			dc.w 1, 2
+			dc.w 1,2
 			dc.l 48000
 			; - Stereo output params(high quality)	
-			dc.w 1, 2
+			dc.w 1,2
 			dc.l 48000
 			; Check mpeg?	
 			dc.w 0

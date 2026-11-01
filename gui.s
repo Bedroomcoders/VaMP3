@@ -1006,7 +1006,7 @@ _MainWdwButtonPlay
 			movea.l	vmp_StructPointer,a5
 
 			tst.l	vmp_Playing(a5)
-			bne.s	.togglePause
+			bne.w	.togglePause
 
 			; Player is idle! Start playing the selected item
 			cmp.l	#VMP_PLAYINGFROM_PLAYLIST,vmp_PlayingFrom(a5)
@@ -1082,7 +1082,7 @@ _MainWdwButtonNext
 
 .dirlist		movea.l	vmp_MUI_DirlistListview(a5),a4
 			lea	_DirlistClicked,a3
-			bra.s	.findNext
+			bra.w	.findNext
 
 .playlist		movea.l	vmp_MUI_PlaylistList(a5),a4
 			lea	_PlaylistClicked,a3
@@ -1114,7 +1114,7 @@ _MainWdwButtonNext
 			STACKREGTAG	d2, MUIA_List_Active
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 			jsr	(a3)
-			bra.s	.done
+			bra.w	.done
 
 .shuffleNext	move.l	vmp_PlaylistCount(a5),d3
 			cmp.l	#1,d3
@@ -1188,7 +1188,7 @@ _MainWdwButtonPrevious
 
 .dirlist		movea.l	vmp_MUI_DirlistListview(a5),a4
 			lea	_DirlistClicked,a3
-			bra.s	.findPrev
+			bra.w	.findPrev
 
 .playlist		movea.l	vmp_MUI_PlaylistList(a5),a4
 			lea	_PlaylistClicked,a3
@@ -1221,7 +1221,7 @@ _MainWdwButtonPrevious
 			STACKREGTAG	d2, MUIA_List_Active
 			CALLSTACKTAG	_LVOSetAttrsA,a1
 			jsr	(a3)
-			bra.s	.done
+			bra.w	.done
 
 .shufflePrev	move.l	vmp_PlaylistCount(a5),d3
 			cmp.l	#1,d3
@@ -1456,7 +1456,7 @@ _DirlistClicked		movem.l	a0-a1/a5-a6,-(sp)
 			lea	vmp_MUI_TempFilePointer(a5),a1
 			LVO	GetAttr
 			tst.l	d0
-			beq.s	.done
+			beq.w	.done
 
 			movea.l	vmp_MUI_MainWdwStatusText(a5),a0
 			INITSTACKTAG
@@ -1795,20 +1795,20 @@ _PlaylistAddSingleDir
 			LVO	AllocDosObject
 			movea.l	d0,a3					; a3 = FileInfoBlock pointer
 			tst.l	d0
-			beq.s	.unlock
+			beq.w	.unlock
 
 			; 3. Examine the directory
 			move.l	d4,d1
 			move.l	a3,d2
 			LVO	Examine
 			tst.l	d0
-			beq.s	.freeFib
+			beq.w	.freeFib
 
 .loopEntries		move.l	d4,d1
 			move.l	a3,d2
 			LVO	ExNext
 			tst.l	d0
-			beq.s	.freeFib				; End of directory or error
+			beq.w	.freeFib				; End of directory or error
 
 			move.l	fib_DirEntryType(a3),d0
 			blt.s	.fileEntry
@@ -1902,7 +1902,7 @@ _PlaylistButtonRemove
 			LVO	GetAttr
 			move.l	vmp_TempVariable(a5),d2			; d2 = active index
 			cmp.l	#MUIV_List_Active_Off,d2
-			beq.s	.done
+			beq.w	.done
 
 			; 2. Retrieve PlaylistEntry pointer
 			lea	vmp_TempVariable(a5),a1
@@ -2198,7 +2198,7 @@ _RestoreStateOnStartup	movem.l	d2-d4/a6,-(sp)
 
 			; 1. Check if playlist is empty
 			tst.l	vmp_PlaylistCount(a5)
-			beq.s	.doneRestore
+			beq.w	.doneRestore
 
 			; 2. Attempt to open state file for reading
 			movea.l	vmp_DosBase(a5),a6
@@ -2532,10 +2532,10 @@ _PlaylistGotAppMessage
 
 			movea.l	(a1),a1						; a1 = AppMessage
 			tst.l	a1
-			beq.s	.done
+			beq.w	.done
 
 			tst.l	am_NumArgs(a1)
-			beq.s	.done
+			beq.w	.done
 
 			move.l	am_NumArgs(a1),d4			; d4 = args count
 			movea.l	am_ArgList(a1),a2			; a2 = WBArg pointer
@@ -2597,7 +2597,7 @@ _PlaylistGotAppMessage
 
 .nextArg		adda.l	#8,a2					; WBArg is 8 bytes
 			subq.l	#1,d4
-			bne.s	.loopArgs
+			bne.w	.loopArgs
 
 .done			moveq	#0,d0
 			movem.l	(sp)+,d2-d4/a2-a6
@@ -2619,7 +2619,7 @@ _AskDir			movem.l	d1/d5/a0-a3/a6,-(sp)
 			suba.l	a0,a0
 			LVO	AllocAslRequest
 			movea.l	d0,a2							; a2 = requester
-			beq.s	.error
+			beq.w	.error
 	
 			; Check settings default MP3 folder path
 			movea.l	vmp_IntuitionBase(a5),a6
@@ -2916,7 +2916,7 @@ _MenuCompact		movem.l	a0/a5-a6,-(sp)
 
 			move.l	vmp_MUI_TempFilePointer(a5),d0
 			cmp.l	#1,d0
-			bne.s	.unchecked
+			bne.w	.unchecked
 
 
 			; Set initial label to create space for song name
@@ -2949,7 +2949,7 @@ _MenuCompact		movem.l	a0/a5-a6,-(sp)
 		;	INITSTACKTAG
 		;	STACKVALTAG	TRUE,MUIA_Menuitem_Toggle
 		;	CALLSTACKTAG	_LVOSetAttrsA,a1
-			bra.s	.done
+			bra.w	.done
 
 .unchecked
 			; Set initial label to create space for song name
@@ -3211,7 +3211,7 @@ _CustomButton_Dispatcher
 			cmp.l	#$00000101,d0					; OM_NEW
 			beq.s	.new
 			cmp.l	#$00000103,d0					; OM_SET
-			beq.s	.set
+			beq.w	.set
             
 			bsr.w	.super
 			bra.w	.exit
@@ -3428,7 +3428,7 @@ _AskFile		movem.l	d1/d5/a0-a3/a6,-(sp)
 			suba.l	a0,a0
 			LVO	AllocAslRequest
 			movea.l	d0,a2							; a2 = requester
-			beq.s	.error
+			beq.w	.error
 	
 			; Check settings default MP3 folder path
 			movea.l	vmp_IntuitionBase(a5),a6
@@ -3516,7 +3516,7 @@ _AskFileSave		movem.l	d1/d5/a0-a3/a6,-(sp)
 			suba.l	a0,a0
 			LVO	AllocAslRequest
 			movea.l	d0,a2							; a2 = requester
-			beq.s	.errorSave
+			beq.w	.errorSave
 	
 			; Check settings default MP3 folder path
 			movea.l	vmp_IntuitionBase(a5),a6
